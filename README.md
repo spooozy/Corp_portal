@@ -2,9 +2,9 @@
 
 This repository contains a project for creating an internal portal for organizations
 
-#### A brief video overview is available here[[https://youtu.be/mUrxtgLOtJw]]
+#### A brief video overview is available here: https://youtu.be/mUrxtgLOtJw
 
-#### You can read more about the project in the explanatory note here[[src/Пояснительная записка_251002_Маталыга.pdf]]
+#### You can read more about the project in the explanatory note `src/Пояснительная записка_251002_Маталыга.pdf`
 
 ### How to launch:
 
@@ -15,7 +15,6 @@ Some data and strusture is already in database, so you can test app without addi
 cd backend
 go run cmd/main.go
 ```
-
 #### Frontend:
 ```
 cd frontend
