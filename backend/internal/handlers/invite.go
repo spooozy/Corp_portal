@@ -11,11 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// Вспомогательная функция для получения текущего пользователя
 func getUserFromContext(c *gin.Context) (models.User, error) {
 	userID := c.MustGet("userID").(uint)
 	var user models.User
-	// Загружаем пользователя, чтобы узнать его OrganizationID
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		return user, err
 	}
@@ -34,7 +32,6 @@ func CreateInvite(c *gin.Context) {
 		return
 	}
 
-	// ИСПРАВЛЕНИЕ: Загружаем пользователя из БД по ID
 	user, err := getUserFromContext(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
@@ -102,8 +99,6 @@ func DeleteInvite(c *gin.Context) {
 		return
 	}
 	token := c.Param("token")
-	print("---TOKEN----")
-	print(token)
 	result := database.DB.Where("token = ?", token).Delete(&models.Invite{})
 	if result.Error != nil || result.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invite not found"})
@@ -120,7 +115,6 @@ func JoinByInvite(c *gin.Context) {
 	tx := database.DB.Begin()
 
 	var invite models.Invite
-	// Используем блокировку для предотвращения гонки при параллельных запросах
 	if err := tx.Set("gorm:query_option", "FOR UPDATE").Where("token = ?", token).First(&invite).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invite not found"})
@@ -138,11 +132,10 @@ func JoinByInvite(c *gin.Context) {
 		return
 	}
 
-	// Сбрасываем текущую команду и организацию перед вступлением
 	err := tx.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
 		"organization_id": invite.OrganizationID,
-		"team_id":         gorm.Expr("NULL"), // Сброс команды
-		"role":            models.RoleUser,   // Сброс роли на обычного юзера
+		"team_id":         gorm.Expr("NULL"),
+		"role":            models.RoleUser,
 	}).Error
 
 	if err != nil {
