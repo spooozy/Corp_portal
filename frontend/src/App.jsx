@@ -14,7 +14,7 @@ import TeamProfile from './pages/TeamProfile';
 import OrgProfile from './pages/OrgProfile'; 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
-const GOOGLE_CLIENT_ID = "805025272236-mkjns39mcts4jkd4m9scu5kpii8phu1n.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "";
 
 function App() {
   return (
