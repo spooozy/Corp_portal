@@ -9,15 +9,18 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Documents from './pages/Documents';
 import JoinPage from './pages/JoinPage';
-import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import TeamProfile from './pages/TeamProfile';
 import OrgProfile from './pages/OrgProfile'; 
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+const GOOGLE_CLIENT_ID = "805025272236-mkjns39mcts4jkd4m9scu5kpii8phu1n.apps.googleusercontent.com";
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
         <Toaster position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -35,6 +38,7 @@ function App() {
           
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </GoogleOAuthProvider>
       </AuthProvider>
     </BrowserRouter>
   );

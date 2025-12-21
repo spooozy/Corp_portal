@@ -61,7 +61,7 @@ export default function OrgProfile() {
   const [isTeamModalOpen, setTeamModalOpen] = useState(false);
   const [invites, setInvites] = useState([]);
   const [inviteForm, setInviteForm] = useState({ expires_in_hours: 24, max_uses: 10 });
-  const [teamForm, setTeamForm] = useState({ name: '', description: '', leader_id: '' });
+  const [teamForm, setTeamForm] = useState({ name: '', description: '', leader_id: null });
   const [potentialLeaders, setPotentialLeaders] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUserForRole, setSelectedUserForRole] = useState(null);
@@ -796,7 +796,7 @@ export default function OrgProfile() {
                   value={teamForm.leader_id} 
                   onChange={e => setTeamForm({
                     ...teamForm, 
-                    leader_id: e.target.value === "" ? 0 : Number(e.target.value)
+                    leader_id: e.target.value === "" ? null: parseInt(value)
                   })}
                 >
                   <MenuItem value="">

@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   };
 
-  const login = async (email, password) => {
+const login = async (email, password) => {
     try {
       const { data } = await api.post('/login', { email, password });
       localStorage.setItem('token', data.token);
@@ -36,6 +36,23 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       toast.error(error.response?.data?.error || 'Ошибка входа');
+      return false;
+    }
+  };
+
+  const googleAuth = async (accessToken) => {
+    try {
+      const { data } = await api.post('/auth/google', { token: accessToken });
+      localStorage.setItem('token', data.token);
+      setUser(data.user);
+
+      await checkUser(); 
+
+      toast.success('Успешный вход через Google!');
+      return true;
+    } catch (error) {
+      console.error("Google Auth Error:", error);
+      toast.error(error.response?.data?.error || 'Ошибка авторизации через Google');
       return false;
     }
   };
@@ -58,7 +75,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, checkUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      register, 
+      googleAuth,
+      logout, 
+      loading, 
+      checkUser 
+    }}>
       {!loading && children}
     </AuthContext.Provider>
   );

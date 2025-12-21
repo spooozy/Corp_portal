@@ -162,7 +162,11 @@ export default function UserProfile() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Grid container spacing={3} justifyContent="center">
+      <Grid container spacing={3} justifyContent="center"
+      sx={{
+        flexWrap: { xs: 'wrap', md: 'nowrap' }
+      }}
+      >
         
         <Grid item xs={12} md={4}>
           <Paper 
@@ -173,7 +177,9 @@ export default function UserProfile() {
               border: '1px solid',
               borderColor: 'divider',
               textAlign: 'center',
-              height: '100%',
+              height: '100%',              
+              maxWidth: { xs: '100%', md: '380px' },
+              minWidth: { md: '300px' },
               background: 'linear-gradient(to bottom, #ffffff 0%, #fcfcfc 100%)',
               boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
             }}
@@ -255,6 +261,8 @@ export default function UserProfile() {
               height: '100%',
               display: 'flex', 
               flexDirection: 'column',
+              maxWidth: { xs: '100%', md: '800px' },
+              minWidth: { md: '600px' },
               boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
             }}
           >
