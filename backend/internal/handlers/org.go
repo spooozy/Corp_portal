@@ -87,8 +87,20 @@ func CreateTeam(c *gin.Context) {
 		return
 	}
 
+	var existingCount int64
+	database.DB.Model(&models.Team{}).
+		Where("organization_id = ? AND LOWER(name) = LOWER(?)", *user.OrganizationID, strings.TrimSpace(input.Name)).
+		Count(&existingCount)
+
+	if existingCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Команда с таким назнанием уже существует в организации",
+		})
+		return
+	}
+
 	team := models.Team{
-		Name:           input.Name,
+		Name:           strings.TrimSpace(input.Name),
 		Description:    input.Description,
 		OrganizationID: *user.OrganizationID,
 	}
@@ -237,6 +249,22 @@ func UpdateTeam(c *gin.Context) {
 	if !isLeader && !isAdmin {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only Team Leader or Admin can edit team"})
 		return
+	}
+
+	newName := strings.TrimSpace(input.Name)
+	if newName != "" && !strings.EqualFold(newName, team.Name) {
+		var existingCount int64
+		database.DB.Model(&models.Team{}).
+			Where("organization_id = ? AND LOWER(name) = LOWER(?) AND id != ?",
+				team.OrganizationID, newName, team.ID).
+			Count(&existingCount)
+		if existingCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Это название уже занято другой командой",
+			})
+			return
+		}
+		team.Name = newName
 	}
 
 	database.DB.Model(&team).Updates(models.Team{

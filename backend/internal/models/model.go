@@ -39,7 +39,7 @@ type User struct {
 
 type Organization struct {
 	ID          uint   `gorm:"primaryKey" json:"id"`
-	Name        string `gorm:"not null" json:"name"`
+	Name        string `gorm:"uniqueIndex;not null" json:"name"`
 	Description string `json:"description"`
 	AvatarURL   string `json:"avatar_url"`
 	OwnerID     uint   `json:"owner_id"`
@@ -54,10 +54,10 @@ type Organization struct {
 
 type Team struct {
 	ID             uint          `gorm:"primaryKey" json:"id"`
-	Name           string        `gorm:"not null" json:"name"`
+	Name           string        `gorm:"not null;index:idx_org_team_name,unique" json:"name"`
 	Description    string        `json:"description"`
 	AvatarURL      string        `json:"avatar_url"`
-	OrganizationID uint          `json:"organization_id"`
+	OrganizationID uint          `gorm:"not null;index:idx_org_team_name,unique" json:"organization_id"`
 	Organization   *Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
 
 	LeaderID *uint `json:"leader_id"`

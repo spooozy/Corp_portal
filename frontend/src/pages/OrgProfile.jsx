@@ -132,10 +132,21 @@ export default function OrgProfile() {
   };
 
   const handleCreateTeam = async () => {
+
+    const nameExists = organization.teams?.some(
+      t => t.name.toLowerCase() === teamForm.name.trim().toLowerCase()
+    );
+
+    if (nameExists){
+      toast.error('Команда с таким именем уже есть в организации');
+      return;
+    }
+
     try {
       await api.post('/teams', teamForm);
       toast.success(`Команда "${teamForm.name}" создана!`);
       setTeamModalOpen(false);
+      setTeamForm({ name: '', description: '', leader_id: null });
       loadOrganization(); 
     } catch(e) { 
       toast.error(e.response?.data?.error || "Ошибка создания команды"); 
@@ -793,10 +804,10 @@ export default function OrgProfile() {
                 <InputLabel>Назначить руководителя</InputLabel>
                 <Select 
                   label="Назначить руководителя" 
-                  value={teamForm.leader_id} 
+                  value={teamForm.leader_id || ""} 
                   onChange={e => setTeamForm({
                     ...teamForm, 
-                    leader_id: e.target.value === "" ? null: parseInt(value)
+                    leader_id: e.target.value === "" ? null: parseInt(e.target.value)
                   })}
                 >
                   <MenuItem value="">
