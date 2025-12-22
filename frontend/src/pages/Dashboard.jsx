@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Box, Typography, Container, Grid, Paper, TextField, 
-  InputAdornment, Button, Chip, Skeleton, Card, CardContent, CardMedia, CardActionArea,
+  InputAdornment, Button, Chip, Skeleton, Card, CardMedia, CardActionArea,
   FormControlLabel, Checkbox
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -58,9 +58,7 @@ export default function Dashboard() {
     <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 4 }}>
       <Container maxWidth="md">
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-                <Typography variant="h4" fontWeight="bold">Лента</Typography>
-            </Box>
+            <Typography variant="h4" fontWeight="bold">Лента</Typography>
             {user?.role >= 2 && (
                 <Button 
                     variant="contained" color="primary" startIcon={<AddCircleOutlineIcon />}
@@ -70,14 +68,14 @@ export default function Dashboard() {
                 </Button>
             )}
         </Box>
-        <Paper sx={{ p: 2, mb: 4, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+
+        <Paper sx={{ p: 2, mb: 4, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
             <TextField
                 placeholder="Поиск..." variant="outlined" size="small"
                 value={search} onChange={(e) => setSearch(e.target.value)}
-                sx={{ flex: 1, minWidth: '200px' }}
+                sx={{ flex: 1 }}
                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
             />
-
             <FormControlLabel
                 control={
                     <Checkbox 
@@ -86,24 +84,22 @@ export default function Dashboard() {
                         color="primary"
                     />
                 }
-                label={
-                    <Typography variant="body2" fontWeight="medium" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <BusinessIcon fontSize="small" color="action" />
-                    </Typography>
-                }
-                sx={{ mr: 0, whiteSpace: 'nowrap' }}
+                label={<BusinessIcon fontSize="small" color="action" />}
+                sx={{ mr: 0 }}
             />
         </Paper>
+
         <Grid container spacing={2}>
             {loading ? (
                 [1, 2, 3].map((n) => (
-                    <Grid item xs={12} key={n}>
+                    <Grid key={n} size={12}>
                         <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 3 }} />
                     </Grid>
                 ))
             ) : displayedNews.length > 0 ? (
                 displayedNews.map((item) => (
-                    <Grid item xs={12} key={item.id}>
+                    /* ВАЖНО: Вместо item xs={12} используем size={12} */
+                    <Grid key={item.id} size={12}>
                         <CompactNewsCard 
                             item={item} 
                             onClick={() => setSelectedNews(item)} 
@@ -111,7 +107,7 @@ export default function Dashboard() {
                     </Grid>
                 ))
             ) : (
-                <Grid item xs={12} sx={{ textAlign: 'center', mt: 4 }}>
+                <Grid size={12} sx={{ textAlign: 'center', mt: 4 }}>
                     <ArticleIcon sx={{ fontSize: 60, opacity: 0.3 }} />
                     <Typography color="text.secondary">
                         {showCompanyOnly ? "Нет новостей компании" : "Новостей нет"}
@@ -130,7 +126,6 @@ export default function Dashboard() {
             news={selectedNews} 
             onClose={() => setSelectedNews(null)} 
         />
-
       </Container>
     </Box>
   );
@@ -158,45 +153,75 @@ function CompactNewsCard({ item, onClick }) {
         >
             <CardActionArea 
                 onClick={onClick} 
-                sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start', alignItems: 'stretch', height: '100%' }}
+                sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'row', 
+                    alignItems: 'stretch',
+                    width: '100%',
+                    height: '100%'
+                }}
             >
                 {item.image_url && (
                     <CardMedia
                         component="img"
-                        sx={{ width: 180, minWidth: 180, height: '100%', objectFit: 'cover' }}
+                        sx={{ 
+                            width: 180, 
+                            minWidth: 180, 
+                            maxWidth: 180,
+                            height: '100%', 
+                            objectFit: 'cover' 
+                        }}
                         image={item.image_url}
                         alt={item.title}
                     />
                 )}
-                <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, p: 2, minWidth: 0 }}>
+                <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    flex: 1, 
+                    p: 2, 
+                    minWidth: 0
+                }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="caption" color="text.secondary" fontWeight="bold" noWrap>
-                            {item.author?.full_name}
+                            {item.author?.full_name || 'Traveler'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ ml: 1, flexShrink: 0 }}>
                             {formatDate(item.created_at)}
                         </Typography>
                     </Box>
+
                     <Typography 
                         variant="h6" fontWeight="bold" 
-                        sx={{ lineHeight: 1.2, mb: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        sx={{ 
+                            lineHeight: 1.2, 
+                            mb: 1, 
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}
                     >
                         {item.title}
                     </Typography>
+
                     <Typography 
                         variant="body2" color="text.secondary"
-                        sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 'auto' }}
+                        sx={{ 
+                            display: '-webkit-box', 
+                            WebkitLineClamp: 2, 
+                            WebkitBoxOrient: 'vertical', 
+                            overflow: 'hidden', 
+                            mb: 'auto' 
+                        }}
                     >
                         {item.content}
                     </Typography>
+
                     {item.tags && item.tags.length > 0 && (
-                        <Box sx={{ mt: 1, display: 'flex', gap: 0.5, overflow: 'hidden' }}>
+                        <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                             {item.tags.slice(0, 3).map((tag) => ( 
                                 <Chip key={tag.id} label={`#${tag.name}`} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
                             ))}
-                            {item.tags.length > 3 && (
-                                <Typography variant="caption" color="text.secondary">+{item.tags.length - 3}</Typography>
-                            )}
                         </Box>
                     )}
                 </Box>
