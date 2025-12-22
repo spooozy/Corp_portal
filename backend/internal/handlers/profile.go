@@ -412,3 +412,51 @@ func RemoveUserAvatar(c *gin.Context) {
 		"message": "Avatar removed successfully",
 	})
 }
+
+func KickFromOrganization(c *gin.Context) {
+	requestorID := c.MustGet("userID").(uint)
+	requestorRole := c.MustGet("role").(models.Role)
+	targetID := c.Param("id")
+
+	if requestorRole < models.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can remove members"})
+		return
+	}
+
+	var requestor models.User
+	database.DB.First(&requestor, requestorID)
+
+	var target models.User
+	if err := database.DB.First(&target, targetID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if requestor.ID == target.ID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Use 'Leave' to exit organization yourself"})
+		return
+	}
+
+	if requestor.OrganizationID == nil || target.OrganizationID == nil || *requestor.OrganizationID != *target.OrganizationID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "User is not in your organization"})
+		return
+	}
+
+	if target.Role == models.RoleSuperAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot remove the organization owner"})
+		return
+	}
+
+	err := database.DB.Model(&target).Updates(map[string]interface{}{
+		"organization_id": nil,
+		"team_id":         nil,
+		"role":            models.RoleUser,
+	}).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("User %s removed from organization", target.FullName)})
+}

@@ -20,6 +20,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import InfoIcon from '@mui/icons-material/Info';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 
 const InfoRow = ({ icon, label, value, isEditing, editComponent }) => (
   <Box sx={{ 
@@ -84,6 +85,7 @@ export default function UserProfile() {
   const targetId = id || currentUser?.id;
   const isAdmin = currentUser?.role >= 3;
   const canEdit = isMyProfile || isAdmin;
+  const canKick = isAdmin && !isMyProfile && profile?.organization_id && profile?.role !== 4;
 
   useEffect(() => {
     if (targetId) loadProfile();
@@ -156,6 +158,20 @@ export default function UserProfile() {
       logout();
       navigate('/login');
     } catch (e) { toast.error(e.response?.data?.error); }
+  };
+
+  const handleKickUser = async () => {
+    if (!window.confirm(`Вы уверены, что хотите исключить пользователя ${profile.full_name} из организации? Пользователь сохранит аккаунт, но потеряет доступ к данным компании.`)) {
+      return;
+    }
+
+    try {
+      await api.post(`/users/${profile.id}/kick`);
+      toast.success('Пользователь исключен из организации');
+      loadProfile(); 
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Ошибка при исключении пользователя');
+    }
   };
 
   if (!profile) return <Container sx={{ py: 4, textAlign: 'center' }}><Typography>Загрузка...</Typography></Container>;
@@ -363,14 +379,14 @@ export default function UserProfile() {
                  </Box>
               )}
             </Stack>
-            {isMyProfile && !isEditing && (
+            {(isMyProfile || canKick) && !isEditing && (
               <Box mt={5}>
                 <Divider sx={{ mb: 3 }} />
                 <Typography variant="overline" color="error" fontWeight="bold" display="block" mb={2}>
                   ОПАСНАЯ ЗОНА
                 </Typography>
                 <Grid container spacing={2}>
-                  {profile.organization_id && profile.role !== 4 && (
+                  {isMyProfile && profile.organization_id && profile.role !== 4 && (
                     <Grid item>
                         <Button 
                             variant="outlined" color="warning" 
@@ -380,13 +396,25 @@ export default function UserProfile() {
                         </Button>
                     </Grid>
                   )}
-                  {profile.role !== 4 && (
+                  {canKick && (
+                    <Grid item>
+                        <Button 
+                            variant="contained" 
+                            color="error" 
+                            startIcon={<PersonRemoveIcon />} 
+                            onClick={handleKickUser}
+                        >
+                            Исключить из организации
+                        </Button>
+                    </Grid>
+                  )}
+                  {isMyProfile && profile.role !== 4 && (
                     <Grid item>
                         <Button 
                             variant="outlined" color="error" 
                             startIcon={<DeleteForeverIcon />} onClick={handleDeleteAccount}
                         >
-                            Удалить аккаунт
+                            Удалить мой аккаунт
                         </Button>
                     </Grid>
                   )}

@@ -51,6 +51,7 @@ func main() {
 			protected.POST("/profile/leave", handlers.LeaveOrganization)
 			protected.POST("/profile/upload-avatar", handlers.UploadAvatar)
 			protected.DELETE("/profile/remove-avatar", handlers.RemoveUserAvatar)
+			protected.POST("/users/:id/kick", middleware.AuthMiddleware(), handlers.KickFromOrganization)
 
 			protected.GET("/users/:id", handlers.GetUserByID)
 			protected.PUT("/users/:id", handlers.UpdateUserByID)
