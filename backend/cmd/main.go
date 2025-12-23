@@ -88,6 +88,8 @@ func main() {
 			protected.POST("/news", handlers.CreateNews)
 			protected.GET("/tags", handlers.GetTags)
 			protected.GET("/authors", handlers.GetOrganizationAuthors)
+			protected.PUT("/news/:id", handlers.UpdateNews)
+			protected.DELETE("/news/:id", handlers.DeleteNews)
 
 			protected.GET("/documents", handlers.GetDocuments)
 			protected.POST("/documents", handlers.UploadDocument)

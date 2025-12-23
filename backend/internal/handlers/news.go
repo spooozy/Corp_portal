@@ -4,6 +4,7 @@ import (
 	"corp-portal/internal/database"
 	"corp-portal/internal/models"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -183,4 +184,107 @@ func GetOrganizationAuthors(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, authors)
+}
+
+func UpdateNews(c *gin.Context) {
+	newsID := c.Param("id")
+	userID := c.MustGet("userID").(uint)
+	role := c.MustGet("role").(models.Role)
+
+	var news models.News
+	if err := database.DB.Preload("Tags").First(&news, newsID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+		return
+	}
+
+	if news.AuthorID != userID && role < models.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+		return
+	}
+
+	file, err := c.FormFile("image")
+	if err == nil {
+		oldImageURL := news.ImageURL
+
+		ext := filepath.Ext(file.Filename)
+		newFileName := uuid.New().String() + ext
+		dst := "uploads/news/" + newFileName
+
+		if err := c.SaveUploadedFile(file, dst); err == nil {
+			news.ImageURL = "http://localhost:8080/" + dst
+			if oldImageURL != "" {
+				RemoveFileFromURL(oldImageURL)
+			}
+		}
+	}
+
+	news.Title = c.PostForm("title")
+	news.Content = c.PostForm("content")
+	news.UpdatedAt = time.Now()
+	tagsIDsStr := c.PostForm("tags_ids")
+	var tags []models.Tag
+
+	if tagsIDsStr != "" {
+		idStrings := strings.Split(tagsIDsStr, ",")
+		var ids []uint
+		for _, idStr := range idStrings {
+			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil {
+				ids = append(ids, uint(id))
+			}
+		}
+		if len(ids) > 0 {
+			database.DB.Where("id IN ?", ids).Find(&tags)
+		}
+	}
+
+	if err := database.DB.Model(&news).Association("Tags").Replace(tags); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update tags"})
+		return
+	}
+
+	if err := database.DB.Save(&news).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update"})
+		return
+	}
+
+	c.JSON(http.StatusOK, news)
+}
+
+func DeleteNews(c *gin.Context) {
+	newsID := c.Param("id")
+	userID := c.MustGet("userID").(uint)
+	role := c.MustGet("role").(models.Role)
+
+	var news models.News
+	if err := database.DB.First(&news, newsID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "News not found"})
+		return
+	}
+
+	if news.AuthorID != userID && role < models.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+		return
+	}
+
+	if news.ImageURL != "" {
+		RemoveFileFromURL(news.ImageURL)
+	}
+
+	if err := database.DB.Delete(&news).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete from DB"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "News and image deleted"})
+}
+
+func RemoveFileFromURL(fileURL string) {
+	if fileURL == "" {
+		return
+	}
+	prefix := "http://localhost:8080/"
+	if strings.HasPrefix(fileURL, prefix) {
+		relativePath := strings.TrimPrefix(fileURL, prefix)
+		_ = os.Remove(relativePath)
+	}
 }

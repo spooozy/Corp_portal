@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react';
 import { 
   Dialog, DialogTitle, DialogContent, DialogActions, 
   TextField, Button, FormControlLabel, Switch, Box, 
-  Typography, Alert, Autocomplete 
+  Typography, Alert, Autocomplete, Chip 
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SendIcon from '@mui/icons-material/Send';
+import SaveIcon from '@mui/icons-material/Save';
 import { useAuth } from '../context/AuthContext';
 
-export default function CreateNewsModal({ open, onClose, onSuccess }) {
+export default function CreateNewsModal({ open, onClose, onSuccess, initialData = null }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [availableTags, setAvailableTags] = useState([]);
+
+  const isEdit = !!initialData;
 
   const [formData, setFormData] = useState({
     title: '',
@@ -30,8 +33,20 @@ export default function CreateNewsModal({ open, onClose, onSuccess }) {
       .then(res => res.json())
       .then(data => setAvailableTags(data || []))
       .catch(err => console.error("Не удалось загрузить теги", err));
+
+      if (initialData) {
+        setFormData({
+          title: initialData.title || '',
+          content: initialData.content || '',
+          selectedTags: initialData.tags || [],
+          imageFile: null,
+          for_team: !!initialData.team_id
+        });
+      } else {
+        setFormData({ title: '', content: '', selectedTags: [], imageFile: null, for_team: false });
+      }
     }
-  }, [open]);
+  }, [open, initialData]);
 
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
@@ -64,23 +79,27 @@ export default function CreateNewsModal({ open, onClose, onSuccess }) {
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8080/api/news', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      
+      const url = isEdit 
+        ? `http://localhost:8080/api/news/${initialData.id}` 
+        : 'http://localhost:8080/api/news';
+      
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Authorization': `Bearer ${token}` },
         body: data 
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Ошибка при создании');
+        throw new Error(result.error || 'Ошибка при сохранении');
       }
-      setFormData({ title: '', content: '', selectedTags: [], imageFile: null, for_team: false });
+
       onSuccess();
       onClose();
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -92,7 +111,10 @@ export default function CreateNewsModal({ open, onClose, onSuccess }) {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle sx={{ fontWeight: 'bold' }}>Создать новость</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 'bold' }}>
+        {isEdit ? 'Редактировать новость' : 'Создать новость'}
+      </DialogTitle>
+      
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -105,19 +127,28 @@ export default function CreateNewsModal({ open, onClose, onSuccess }) {
           margin="dense" label="Текст новости" name="content" fullWidth required multiline minRows={4}
           variant="outlined" value={formData.content} onChange={handleChange} sx={{ mb: 2 }}
         />
+
         <Autocomplete
           multiple
           options={availableTags}
           getOptionLabel={(option) => option.name}
           value={formData.selectedTags}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
           onChange={(event, newValue) => {
             setFormData(prev => ({ ...prev, selectedTags: newValue }));
           }}
           renderInput={(params) => (
             <TextField {...params} variant="outlined" label="Теги" placeholder="Выберите теги" />
           )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => {
+              const { key, ...tagProps } = getTagProps({ index });
+              return <Chip key={key} label={option.name} size="small" {...tagProps} />;
+            })
+          }
           sx={{ mb: 2 }}
         />
+
         <Box sx={{ mb: 2, border: '1px dashed #ccc', borderRadius: 2, p: 2, textAlign: 'center' }}>
             <input
                 accept="image/*"
@@ -128,7 +159,10 @@ export default function CreateNewsModal({ open, onClose, onSuccess }) {
             />
             <label htmlFor="raised-button-file">
                 <Button variant="text" component="span" startIcon={<CloudUploadIcon />}>
-                    {formData.imageFile ? formData.imageFile.name : "Загрузить обложку"}
+                    {formData.imageFile 
+                      ? formData.imageFile.name 
+                      : (isEdit && initialData.image_url ? "Заменить обложку" : "Загрузить обложку")
+                    }
                 </Button>
             </label>
         </Box>
@@ -146,17 +180,18 @@ export default function CreateNewsModal({ open, onClose, onSuccess }) {
                 </Typography>
             )}
         </Box>
-
       </DialogContent>
+
       <DialogActions sx={{ p: 3 }}>
         <Button onClick={onClose} color="inherit">Отмена</Button>
         <Button 
             onClick={handleSubmit} 
-            variant="contained" color="secondary"
+            variant="contained" 
+            color={isEdit ? "primary" : "secondary"}
             disabled={loading || (!canPostGlobal && !formData.for_team)}
-            endIcon={loading ? null : <SendIcon />}
+            endIcon={loading ? null : (isEdit ? <SaveIcon /> : <SendIcon />)}
         >
-          {loading ? 'Загрузка...' : 'Опубликовать'}
+          {loading ? 'Загрузка...' : (isEdit ? 'Сохранить' : 'Опубликовать')}
         </Button>
       </DialogActions>
     </Dialog>

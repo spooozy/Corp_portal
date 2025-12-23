@@ -10,6 +10,9 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ArticleIcon from '@mui/icons-material/Article';
 import BusinessIcon from '@mui/icons-material/Business';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import IconButton from '@mui/material/IconButton';
 
 import Onboarding from '../components/Onboarding';
 import CreateNewsModal from '../components/CreateNewsModal';
@@ -24,6 +27,7 @@ export default function Dashboard() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [showCompanyOnly, setShowCompanyOnly] = useState(false);
+  const [newsToEdit, setNewsToEdit] = useState(null);
 
   const [availableTags, setAvailableTags] = useState([]);
   const [availableAuthors, setAvailableAuthors] = useState([]);
@@ -70,20 +74,50 @@ export default function Dashboard() {
           setNews(data);
         }
       } catch (error) {
-        console.error("Ошибка загрузки", error);
+         console.error("Ошибка загрузки", error);
       } finally {
-        setLoading(false);
+          setLoading(false);
       }
+      };
+        const timeoutId = setTimeout(fetchNews, 500);
+        return () => clearTimeout(timeoutId);
+    }, [search, selectedTags, selectedAuthors, user, refreshTrigger]);
+
+    if (user && !user.organization_id) return <Onboarding />;
+
+    const displayedNews = showCompanyOnly 
+        ? news.filter(item => !item.team_id)
+        : news;
+
+    const handleDeleteNews = async (id) => {
+        if (!window.confirm("Вы уверены, что хотите удалить эту новость?")) return;
+        
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`http://localhost:8080/api/news/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                setRefreshTrigger(prev => prev + 1);
+            } else {
+                alert("Ошибка при удалении");
+            }
+        } catch (error) {
+            console.error("Delete error", error);
+        }
     };
-    const timeoutId = setTimeout(fetchNews, 500);
-    return () => clearTimeout(timeoutId);
-  }, [search, selectedTags, selectedAuthors, user, refreshTrigger]);
 
-  if (user && !user.organization_id) return <Onboarding />;
+    const handleOpenEdit = (news) => {
+        setNewsToEdit(news);
+        setIsCreateModalOpen(true);
+    };
 
-  const displayedNews = showCompanyOnly 
-    ? news.filter(item => !item.team_id)
-    : news;
+    const handleCloseModal = () => {
+        setIsCreateModalOpen(false);
+        setNewsToEdit(null);
+    };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 4 }}>
@@ -153,7 +187,14 @@ export default function Dashboard() {
                  [1, 2, 3].map(n => <Grid key={n} size={12}><Skeleton height={160} sx={{ borderRadius: 3 }} /></Grid>)
             ) : displayedNews.map(item => (
                 <Grid key={item.id} size={12}>
-                    <CompactNewsCard item={item} onClick={() => setSelectedNews(item)} />
+                    <CompactNewsCard 
+                        item={item} 
+                        onClick={() => setSelectedNews(item)} 
+                        onDelete={handleDeleteNews}
+                        onEdit={handleOpenEdit}
+                        currentUserId={user?.id}
+                        userRole={user?.role}
+                    />
                 </Grid>
             ))}
         </Grid>
@@ -161,8 +202,9 @@ export default function Dashboard() {
 
         <CreateNewsModal 
             open={isCreateModalOpen} 
-            onClose={() => setIsCreateModalOpen(false)} 
+            onClose={handleCloseModal}  
             onSuccess={() => setRefreshTrigger(prev => prev + 1)} 
+            initialData={newsToEdit}
         />
         
         <FullNewsModal 
@@ -174,12 +216,23 @@ export default function Dashboard() {
   );
 }
 
-function CompactNewsCard({ item, onClick }) {
+function CompactNewsCard({ item, onClick, onEdit, onDelete, currentUserId, userRole }) {
     const formatDate = (dateString) => {
+        if (!dateString) return '';
         return new Date(dateString).toLocaleDateString('ru-RU', {
           day: 'numeric', month: 'long'
         });
     };
+
+    const authorId = Number(item.author_id || item.author?.id);
+    
+    const userId = Number(currentUserId);
+    
+    const role = Number(userRole);
+
+    const isAuthor = authorId > 0 && userId > 0 && authorId === userId;
+    const isAdmin = role >= 3; 
+    const canManage = isAuthor || isAdmin;
 
     return (
         <Card 
@@ -189,45 +242,34 @@ function CompactNewsCard({ item, onClick }) {
                 display: 'flex', 
                 borderRadius: 3, 
                 height: 160, 
+                position: 'relative',
                 overflow: 'hidden',
                 transition: '0.2s',
-                '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' }
+                '&:hover': { 
+                    boxShadow: 4, 
+                    transform: 'translateY(-2px)',
+                    '& .news-actions': { opacity: 1 } 
+                }
             }}
         >
             <CardActionArea 
                 onClick={onClick} 
-                sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'row', 
-                    alignItems: 'stretch',
-                    width: '100%',
-                    height: '100%'
-                }}
+                sx={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', width: '100%', height: '100%' }}
             >
                 {item.image_url && (
                     <CardMedia
                         component="img"
-                        sx={{ 
-                            width: 180, 
-                            minWidth: 180, 
-                            maxWidth: 180,
-                            height: '100%', 
-                            objectFit: 'cover' 
-                        }}
+                        sx={{ width: 180, minWidth: 180, maxWidth: 180, height: '100%', objectFit: 'cover' }}
                         image={item.image_url}
-                        alt={item.title}
                     />
                 )}
-                <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    flex: 1, 
-                    p: 2, 
-                    minWidth: 0
-                }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, p: 2, minWidth: 0}}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="caption" color="text.secondary" fontWeight="bold" noWrap>
                             {item.author?.full_name || 'Traveler'}
+                            {item.updated_at && new Date(item.updated_at).getTime() > new Date(item.created_at).getTime() + 1000 && (
+                                <span style={{ fontWeight: 'normal', opacity: 0.7 }}> (изм. {formatDate(item.updated_at)})</span>
+                            )}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ ml: 1, flexShrink: 0 }}>
                             {formatDate(item.created_at)}
@@ -236,26 +278,14 @@ function CompactNewsCard({ item, onClick }) {
 
                     <Typography 
                         variant="h6" fontWeight="bold" 
-                        sx={{ 
-                            lineHeight: 1.2, 
-                            mb: 1, 
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}
+                        sx={{ lineHeight: 1.2, mb: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                     >
                         {item.title}
                     </Typography>
 
                     <Typography 
                         variant="body2" color="text.secondary"
-                        sx={{ 
-                            display: '-webkit-box', 
-                            WebkitLineClamp: 2, 
-                            WebkitBoxOrient: 'vertical', 
-                            overflow: 'hidden', 
-                            mb: 'auto' 
-                        }}
+                        sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 'auto' }}
                     >
                         {item.content}
                     </Typography>
@@ -269,6 +299,33 @@ function CompactNewsCard({ item, onClick }) {
                     )}
                 </Box>
             </CardActionArea>
+            
+            {canManage && (
+                <Box 
+                    className="news-actions"
+                    sx={{ 
+                        position: 'absolute', 
+                        right: 8, 
+                        bottom: 8, 
+                        display: 'flex', 
+                        gap: 1, 
+                        zIndex: 10,
+                        opacity: 0,
+                        transition: 'opacity 0.2s ease-in-out',
+                        bgcolor: 'rgba(255,255,255,0.9)',
+                        borderRadius: 2,
+                        p: 0.5,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                >
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); onEdit(item); }}>
+                        <EditIcon fontSize="small" color="primary" />
+                    </IconButton>
+                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}>
+                        <DeleteIcon fontSize="small" color="error" />
+                    </IconButton>
+                </Box>
+            )}
         </Card>
     );
 }
