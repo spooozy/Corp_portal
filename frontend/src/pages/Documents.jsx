@@ -11,6 +11,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import BusinessIcon from '@mui/icons-material/Business';
 import DeleteIcon from '@mui/icons-material/Delete';
+import GroupsIcon from '@mui/icons-material/Groups';
 
 import Onboarding from '../components/Onboarding';
 import UploadDocumentModal from '../components/UploadDocumentModal';
@@ -27,18 +28,26 @@ export default function Documents() {
   const [availableAuthors, setAvailableAuthors] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedTeams, setSelectedTeams] = useState([]);
+  const [availableTeams, setAvailableTeams] = useState([]);
+  const isAdminPlus = user?.role >= 3;
 
   useEffect(() => {
     const fetchMetadata = async () => {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
         try {
-            const [tagsRes, authorsRes] = await Promise.all([
+            const requests = [
                 fetch('http://localhost:8080/api/tags', { headers }),
                 fetch('http://localhost:8080/api/authors', { headers })
-            ]);
-            if (tagsRes.ok) setAvailableTags(await tagsRes.json());
-            if (authorsRes.ok) setAvailableAuthors(await authorsRes.json());
+            ];
+            if (isAdminPlus) {
+                requests.push(fetch('http://localhost:8080/api/teamsIn', { headers }));
+            }
+            const responses = await Promise.all(requests);
+            if (responses[0].ok) setAvailableTags(await responses[0].json());
+            if (responses[1].ok) setAvailableAuthors(await responses[1].json());
+            if (isAdminPlus && responses[2]?.ok) setAvailableTeams(await responses[2].json());
         } catch (e) { console.error("Metadata error", e); }
     };
     if (user?.organization_id) fetchMetadata();
@@ -54,7 +63,7 @@ export default function Documents() {
         if (search) params.append('search', search);
         if (selectedTags.length > 0) params.append('tag_ids', selectedTags.map(t => t.id).join(','));
         if (selectedAuthors.length > 0) params.append('author_ids', selectedAuthors.map(a => a.id).join(','));
-
+        if (selectedTeams.length > 0) params.append('team_ids', selectedTeams.map(t => t.id).join(','));
         const response = await fetch(`http://localhost:8080/api/documents?${params.toString()}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -67,7 +76,7 @@ export default function Documents() {
     };
     const timeoutId = setTimeout(fetchDocs, 400);
     return () => clearTimeout(timeoutId);
-  }, [search, selectedTags, selectedAuthors, user, refreshTrigger]);
+  }, [search, selectedTags, selectedAuthors, selectedTeams, user, refreshTrigger]);
 
   const handleDownload = async (docId, fallbackName) => {
     try {
@@ -162,6 +171,22 @@ export default function Documents() {
                         renderInput={(p) => <TextField {...p} label="Авторы" />}
                     />
                 </Grid>
+                {isAdminPlus && (
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                        <Autocomplete
+                            multiple size="small" options={availableTeams} getOptionLabel={(o) => o.name || ''}
+                            value={selectedTeams} isOptionEqualToValue={(o, v) => o.id === v.id}
+                            onChange={(_, v) => setSelectedTeams(v)}
+                            renderInput={(p) => <TextField {...p} label="Команды" />}
+                            renderTags={(value, getTagProps) =>
+                                value.map((o, i) => {
+                                    const { key, ...tagProps } = getTagProps({ index: i });
+                                    return <Chip key={key} label={o.name} size="small" {...tagProps} />;
+                                })
+                            }
+                        />
+                    </Grid>
+                )}
                 <Grid size={{ xs: 12, sm: 2 }} sx={{ textAlign: 'right' }}>
                     <FormControlLabel
                         control={<Checkbox checked={showCompanyOnly} onChange={(e) => setShowCompanyOnly(e.target.checked)} />}

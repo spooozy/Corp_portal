@@ -13,6 +13,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IconButton from '@mui/material/IconButton';
+import GroupsIcon from '@mui/icons-material/Groups';
 
 import Onboarding from '../components/Onboarding';
 import CreateNewsModal from '../components/CreateNewsModal';
@@ -31,27 +32,36 @@ export default function Dashboard() {
 
   const [availableTags, setAvailableTags] = useState([]);
   const [availableAuthors, setAvailableAuthors] = useState([]);
+  const [availableTeams, setAvailableTeams] = useState([]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedNews, setSelectedNews] = useState(null);
+  const [selectedTeams, setSelectedTeams] = useState([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const isAdminPlus = user?.role >= 3;
 
   useEffect(() => {
     const fetchMetadata = async () => {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
-        
         try {
-            const [tagsRes, authorsRes] = await Promise.all([
+            const requests = [
                 fetch('http://localhost:8080/api/tags', { headers }),
                 fetch('http://localhost:8080/api/authors', { headers })
-            ]);
-            if (tagsRes.ok) setAvailableTags(await tagsRes.ok ? await tagsRes.json() : []);
-            if (authorsRes.ok) setAvailableAuthors(await authorsRes.json());
-        } catch (e) { console.error("Metadata load error", e); }
+            ];
+            if (isAdminPlus) {
+                requests.push(fetch('http://localhost:8080/api/teamsIn', { headers }));
+            }
+
+            const responses = await Promise.all(requests);
+            if (responses[0].ok) setAvailableTags(await responses[0].json());
+            if (responses[1].ok) setAvailableAuthors(await responses[1].json());
+            if (isAdminPlus && responses[2]?.ok) setAvailableTeams(await responses[2].json());
+        } catch (e) { console.error(e); }
     };
     if (user?.organization_id) fetchMetadata();
-  }, [user]);
+  }, [user, isAdminPlus]);
 
 
   useEffect(() => {
@@ -59,29 +69,22 @@ export default function Dashboard() {
       if (!user?.organization_id) return;
       setLoading(true);
       try {
-        const token = localStorage.getItem('token');
-        
         const params = new URLSearchParams();
         if (search) params.append('search', search);
         if (selectedTags.length > 0) params.append('tag_ids', selectedTags.map(t => t.id).join(','));
         if (selectedAuthors.length > 0) params.append('author_ids', selectedAuthors.map(a => a.id).join(','));
+        if (selectedTeams.length > 0) params.append('team_ids', selectedTeams.map(t => t.id).join(','));
 
         const response = await fetch(`http://localhost:8080/api/news?${params.toString()}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-        if (response.ok) {
-          const data = await response.json();
-          setNews(data);
-        }
-      } catch (error) {
-         console.error("Ошибка загрузки", error);
-      } finally {
-          setLoading(false);
-      }
-      };
-        const timeoutId = setTimeout(fetchNews, 500);
-        return () => clearTimeout(timeoutId);
-    }, [search, selectedTags, selectedAuthors, user, refreshTrigger]);
+        if (response.ok) setNews(await response.json());
+      } catch (error) { console.error(error); }
+      finally { setLoading(false); }
+    };
+    const timeoutId = setTimeout(fetchNews, 400);
+    return () => clearTimeout(timeoutId);
+  }, [search, selectedTags, selectedAuthors, selectedTeams, user, refreshTrigger]);
 
     if (user && !user.organization_id) return <Onboarding />;
 
@@ -173,6 +176,22 @@ export default function Dashboard() {
                         renderInput={(params) => <TextField {...params} label="Авторы" />}
                     />
                 </Grid>
+                {isAdminPlus && (
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                        <Autocomplete
+                            multiple size="small" options={availableTeams} getOptionLabel={(o) => o.name || ''}
+                            value={selectedTeams} isOptionEqualToValue={(o, v) => o.id === v.id}
+                            onChange={(_, v) => setSelectedTeams(v)}
+                            renderInput={(p) => <TextField {...p} label="Команды" />}
+                            renderTags={(value, getTagProps) =>
+                                value.map((o, i) => {
+                                    const { key, ...tagProps } = getTagProps({ index: i });
+                                    return <Chip key={key} label={o.name} size="small" {...tagProps} />;
+                                })
+                            }
+                        />
+                    </Grid>
+                )}
                 <Grid size={{ xs: 12, sm: 2 }} sx={{ textAlign: 'right' }}>
                     <FormControlLabel
                         control={<Checkbox checked={showCompanyOnly} onChange={(e) => setShowCompanyOnly(e.target.checked)} />}

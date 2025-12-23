@@ -28,6 +28,7 @@ func GetNewsFeed(c *gin.Context) {
 	searchQuery := c.Query("search")
 	tagIDsParam := c.Query("tag_ids")
 	authorIDsParam := c.Query("author_ids")
+	teamIDsParam := c.Query("team_ids")
 
 	var user models.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
@@ -53,6 +54,11 @@ func GetNewsFeed(c *gin.Context) {
 		} else {
 			db = db.Where("news.team_id IS NULL")
 		}
+	}
+
+	if teamIDsParam != "" {
+		teamIDs := strings.Split(teamIDsParam, ",")
+		db = db.Where("news.team_id IN ?", teamIDs)
 	}
 
 	if authorIDsParam != "" {
