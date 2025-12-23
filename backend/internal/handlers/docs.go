@@ -4,6 +4,8 @@ import (
 	"corp-portal/internal/database"
 	"corp-portal/internal/models"
 	"net/http"
+	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -80,6 +82,7 @@ func UploadDocument(c *gin.Context) {
 	description := c.PostForm("description")
 	forTeamStr := c.PostForm("for_team")
 	tagsIDsStr := c.PostForm("tags_ids")
+	targetTeamIDStr := c.PostForm("target_team_id")
 
 	if title == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is required"})
@@ -121,6 +124,7 @@ func UploadDocument(c *gin.Context) {
 		Title:          title,
 		Description:    description,
 		FileURL:        fileURL,
+		OriginalName:   file.Filename,
 		Tags:           tags,
 		OrganizationID: *user.OrganizationID,
 		AuthorID:       userID,
@@ -128,24 +132,77 @@ func UploadDocument(c *gin.Context) {
 	}
 	forTeam, _ := strconv.ParseBool(forTeamStr)
 	if forTeam {
-		if user.TeamID == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Вы не состоите в команде"})
-			return
-		}
-		isTeamLeader := user.Team != nil && user.Team.LeaderID != nil && *user.Team.LeaderID == user.ID
-		if role < models.RoleManager && !isTeamLeader {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Только руководители могут добавлять документы для команды"})
-			return
-		}
-		doc.TeamID = user.TeamID
-	} else {
-		if role < models.RoleAdmin {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Только администраторы могут сохранять документы для всей организации"})
-			return
+		if role >= 3 && targetTeamIDStr != "" {
+			tID, _ := strconv.ParseUint(targetTeamIDStr, 10, 32)
+			val := uint(tID)
+			doc.TeamID = &val
+		} else {
+			if user.TeamID == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "You are not in a team"})
+				return
+			}
+			doc.TeamID = user.TeamID
 		}
 	}
-
-	database.DB.Create(&doc)
 	doc.Author = user
+
+	if err := database.DB.Create(&doc).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save to DB"})
+		return
+	}
 	c.JSON(http.StatusCreated, doc)
+}
+
+func DeleteDocument(c *gin.Context) {
+	docID := c.Param("id")
+	userID := c.MustGet("userID").(uint)
+	role := c.MustGet("role").(models.Role)
+
+	var doc models.Document
+	if err := database.DB.First(&doc, docID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Document not found"})
+		return
+	}
+
+	if doc.AuthorID != userID && role < models.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+		return
+	}
+	removeDocFileFromURL(doc.FileURL)
+	database.DB.Delete(&doc)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Document deleted successfully"})
+}
+
+func removeDocFileFromURL(fileURL string) {
+	if fileURL == "" {
+		return
+	}
+	prefix := "http://localhost:8080/"
+	if strings.HasPrefix(fileURL, prefix) {
+		relativePath := strings.TrimPrefix(fileURL, prefix)
+		_ = os.Remove(relativePath)
+	}
+}
+
+func DownloadDocument(c *gin.Context) {
+	docID := c.Param("id")
+	var doc models.Document
+	if err := database.DB.First(&doc, docID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Not found"})
+		return
+	}
+
+	prefix := "http://localhost:8080/"
+	filePath := strings.TrimPrefix(doc.FileURL, prefix)
+
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename="+doc.OriginalName)
+	c.Header("Content-Type", "application/octet-stream")
+
+	encodedName := url.PathEscape(doc.OriginalName)
+
+	c.Header("Content-Disposition", "attachment; filename=\""+doc.OriginalName+"\"; filename*=UTF-8''"+encodedName)
+	c.File(filePath)
 }

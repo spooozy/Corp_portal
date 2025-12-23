@@ -3,29 +3,28 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Box, Typography, Container, Grid, Paper, TextField, 
   InputAdornment, Button, Chip, Skeleton, Card, CardActionArea, 
-  FormControlLabel, Checkbox, Avatar, Autocomplete
+  FormControlLabel, Checkbox, Avatar, Autocomplete, IconButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import BusinessIcon from '@mui/icons-material/Business';
+import DeleteIcon from '@mui/icons-material/Delete';
 
+import Onboarding from '../components/Onboarding';
 import UploadDocumentModal from '../components/UploadDocumentModal';
 
 export default function Documents() {
   const { user } = useAuth();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
-  
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [showCompanyOnly, setShowCompanyOnly] = useState(false);
-
   const [availableTags, setAvailableTags] = useState([]);
   const [availableAuthors, setAvailableAuthors] = useState([]);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -40,7 +39,7 @@ export default function Documents() {
             ]);
             if (tagsRes.ok) setAvailableTags(await tagsRes.json());
             if (authorsRes.ok) setAvailableAuthors(await authorsRes.json());
-        } catch (e) { console.error("Metadata load error", e); }
+        } catch (e) { console.error("Metadata error", e); }
     };
     if (user?.organization_id) fetchMetadata();
   }, [user]);
@@ -63,19 +62,61 @@ export default function Documents() {
           const data = await response.json();
           setDocs(data);
         }
-      } catch (error) {
-        console.error("Ошибка загрузки документов", error);
-      } finally {
-        setLoading(false);
-      }
+      } catch (error) { console.error("Load error", error); }
+      finally { setLoading(false); }
     };
     const timeoutId = setTimeout(fetchDocs, 400);
     return () => clearTimeout(timeoutId);
   }, [search, selectedTags, selectedAuthors, user, refreshTrigger]);
 
-  const displayedDocs = showCompanyOnly 
-    ? docs.filter(item => !item.team_id) 
-    : docs;
+  const handleDownload = async (docId, fallbackName) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8080/api/documents/download/${docId}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Ошибка скачивания');
+
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let fileName = fallbackName || 'document';
+        
+        if (contentDisposition) {
+            const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+            if (fileNameMatch && fileNameMatch[1]) {
+                fileName = decodeURIComponent(fileNameMatch[1]);
+            }
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error("Download error:", error);
+        alert("Не удалось скачать файл");
+    }
+  };
+
+  const handleDeleteDoc = async (id) => {
+    if (!window.confirm("Удалить документ навсегда?")) return;
+    try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`http://localhost:8080/api/documents/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) setRefreshTrigger(p => p + 1);
+    } catch (e) { console.error(e); }
+  };
+
+  if (user && !user.organization_id) return <Onboarding />;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 4 }}>
@@ -83,15 +124,10 @@ export default function Documents() {
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
                 <Typography variant="h4" fontWeight="bold">Документы</Typography>
-                <Typography variant="body1" color="text.secondary">База знаний и файлы</Typography>
+                <Typography variant="body1" color="text.secondary">База знаний организации</Typography>
             </Box>
             {user?.role >= 1 && (
-                <Button 
-                    variant="contained" color="primary" startIcon={<CloudUploadIcon />}
-                    onClick={() => setIsModalOpen(true)}
-                >
-                    Загрузить
-                </Button>
+                <Button variant="contained" startIcon={<CloudUploadIcon />} onClick={() => setIsModalOpen(true)}>Загрузить</Button>
             )}
         </Box>
 
@@ -99,47 +135,37 @@ export default function Documents() {
             <Grid container spacing={2} alignItems="center">
                 <Grid size={12}>
                     <TextField
-                        fullWidth placeholder="Поиск документов..." variant="outlined" size="small"
+                        fullWidth placeholder="Поиск..." size="small"
                         value={search} onChange={(e) => setSearch(e.target.value)}
                         InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
                     />
                 </Grid>
-                
                 <Grid size={{ xs: 12, sm: 5 }}>
                     <Autocomplete
-                        multiple size="small"
-                        options={availableTags}
-                        getOptionLabel={(option) => option.name}
-                        value={selectedTags}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        onChange={(_, newValue) => setSelectedTags(newValue)}
-                        renderInput={(params) => <TextField {...params} label="Теги" />}
+                        multiple size="small" options={availableTags} getOptionLabel={(o) => o.name}
+                        value={selectedTags} isOptionEqualToValue={(o, v) => o.id === v.id}
+                        onChange={(_, v) => setSelectedTags(v)}
+                        renderInput={(p) => <TextField {...p} label="Теги" />}
                         renderTags={(value, getTagProps) =>
-                            value.map((option, index) => {
-                                const { key, ...tagProps } = getTagProps({ index });
-                                return <Chip key={key} label={option.name} size="small" {...tagProps} />;
+                            value.map((o, i) => {
+                                const { key, ...tagProps } = getTagProps({ index: i });
+                                return <Chip key={key} label={o.name} size="small" {...tagProps} />;
                             })
                         }
                     />
                 </Grid>
-
                 <Grid size={{ xs: 12, sm: 5 }}>
                     <Autocomplete
-                        multiple size="small"
-                        options={availableAuthors}
-                        getOptionLabel={(option) => option.full_name || ''}
-                        value={selectedAuthors}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        onChange={(_, newValue) => setSelectedAuthors(newValue)}
-                        renderInput={(params) => <TextField {...params} label="Авторы" />}
+                        multiple size="small" options={availableAuthors} getOptionLabel={(o) => o.full_name || ''}
+                        value={selectedAuthors} isOptionEqualToValue={(o, v) => o.id === v.id}
+                        onChange={(_, v) => setSelectedAuthors(v)}
+                        renderInput={(p) => <TextField {...p} label="Авторы" />}
                     />
                 </Grid>
-
                 <Grid size={{ xs: 12, sm: 2 }} sx={{ textAlign: 'right' }}>
                     <FormControlLabel
                         control={<Checkbox checked={showCompanyOnly} onChange={(e) => setShowCompanyOnly(e.target.checked)} />}
                         label={<BusinessIcon fontSize="small" color="action" />}
-                        sx={{ mr: 0 }}
                     />
                 </Grid>
             </Grid>
@@ -148,90 +174,85 @@ export default function Documents() {
         <Grid container spacing={2}>
             {loading ? (
                 [1, 2, 3].map((n) => <Grid key={n} size={12}><Skeleton variant="rectangular" height={100} sx={{ borderRadius: 3 }} /></Grid>)
-            ) : displayedDocs.length > 0 ? (
-                displayedDocs.map((item) => (
-                    <Grid key={item.id} size={12}>
-                        <DocumentCard item={item} />
-                    </Grid>
-                ))
-            ) : (
-                <Grid size={12} sx={{ textAlign: 'center', mt: 4 }}>
-                    <InsertDriveFileIcon sx={{ fontSize: 60, opacity: 0.3 }} />
-                    <Typography color="text.secondary">Документы не найдены</Typography>
+            ) : (showCompanyOnly ? docs.filter(d => !d.team_id) : docs).map((item) => (
+                <Grid key={item.id} size={12}>
+                    <DocumentCard 
+                        item={item} 
+                        currentUserId={user?.id}
+                        userRole={user?.role}
+                        onDelete={handleDeleteDoc}
+                        onDownload={handleDownload}
+                    />
                 </Grid>
-            )}
+            ))}
         </Grid>
 
-        <UploadDocumentModal 
-            open={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            onSuccess={() => setRefreshTrigger(prev => prev + 1)} 
-        />
+        <UploadDocumentModal open={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={() => setRefreshTrigger(p => p + 1)} />
       </Container>
     </Box>
   );
 }
 
-function DocumentCard({ item }) {
+function DocumentCard({ item, currentUserId, userRole, onDelete, onDownload }) {
     const formatDate = (dateString) => new Date(dateString).toLocaleDateString('ru-RU');
+
+    const isAuthor = Number(item.author_id) === Number(currentUserId);
+    const isAdmin = Number(userRole) >= 2;
+    const canManage = isAuthor || isAdmin;
 
     return (
         <Card 
             elevation={1}
             sx={{ 
-                width: '100%', 
-                borderRadius: 3, 
-                transition: '0.2s',
-                '&:hover': { boxShadow: 3, transform: 'translateY(-2px)' }
+                width: '100%', borderRadius: 3, position: 'relative', transition: '0.2s',
+                '&:hover': { boxShadow: 3, transform: 'translateY(-2px)', '& .doc-actions': { opacity: 1 } }
             }}
         >
-            <CardActionArea
-                href={item.file_url} 
-                target="_blank" 
-                download
-                sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'row',
-                    alignItems: 'center', 
-                    p: 2, 
-                    width: '100%',
-                    justifyContent: 'flex-start'
-                }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
                 <Avatar sx={{ bgcolor: '#e3f2fd', color: '#1976d2', width: 56, height: 56, mr: 2, flexShrink: 0 }}>
                     <InsertDriveFileIcon fontSize="large" />
                 </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                        <Typography variant="h6" fontWeight="bold" noWrap sx={{ flex: 1 }}>
+                
+                <Box sx={{ flex: 1, minWidth: 0, pr: 6 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 1 }}>
+                        <Typography 
+                            variant="h6" fontWeight="bold" noWrap 
+                            sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                            onClick={() => onDownload(item.id, item.title)}
+                        >
                             {item.title}
                         </Typography>
                         <Chip 
                             label={item.team_id ? "Команда" : "Организация"} 
-                            size="small" 
-                            color={item.team_id ? "primary" : "default"} 
-                            variant="outlined"
-                            sx={{ ml: 1, height: 24, flexShrink: 0 }}
+                            size="small" variant="outlined"
+                            sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }}
                         />
                     </Box>
-                    
-                    <Typography variant="body2" color="text.secondary" noWrap sx={{ mb: 1 }}>
-                        {item.description || "Нет описания"}
-                    </Typography>
-
+                    <Typography variant="body2" color="text.secondary" noWrap sx={{ mb: 1 }}>{item.description || "Нет описания"}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                        <Box sx={{ display: 'flex', gap: 0.5, overflow: 'hidden', flex: 1 }}>
-                            {item.tags?.slice(0, 3).map(tag => (
-                                <Chip key={tag.id} label={`#${tag.name}`} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
-                            ))}
+                        <Box sx={{ display: 'flex', gap: 0.5, overflow: 'hidden' }}>
+                            {item.tags?.slice(0, 3).map(tag => <Chip key={tag.id} label={`#${tag.name}`} size="small" sx={{ height: 18, fontSize: '0.7rem' }} />)}
                         </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                            {formatDate(item.created_at)} • {item.author?.full_name}
-                        </Typography>
+                        <Typography variant="caption" color="text.secondary">{formatDate(item.created_at)} • {item.author?.full_name}</Typography>
                     </Box>
                 </Box>
-                <DownloadIcon color="action" sx={{ ml: 2, flexShrink: 0 }} />
-            </CardActionArea>
+                
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <IconButton size="small" onClick={() => onDownload(item.id, item.title)}>
+                        <DownloadIcon color="action" />
+                    </IconButton>
+
+                    {canManage && (
+                        <IconButton 
+                            className="doc-actions" size="small" 
+                            sx={{ opacity: 0, transition: '0.2s', color: 'error.main' }} 
+                            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    )}
+                </Box>
+            </Box>
         </Card>
     );
 }

@@ -23,15 +23,12 @@ func main() {
 
 	r := gin.Default()
 
-	// config := cors.DefaultConfig()
-	// config.AllowOrigins = []string{"http://localhost:5173"}
-	// config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:8080"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Authorization", "Accept"},
 		AllowCredentials: true,
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Disposition"},
 		MaxAge:           12 * time.Hour,
 	}))
 
@@ -94,6 +91,8 @@ func main() {
 
 			protected.GET("/documents", handlers.GetDocuments)
 			protected.POST("/documents", handlers.UploadDocument)
+			protected.DELETE("/documents/:id", handlers.DeleteDocument)
+			protected.GET("/documents/download/:id", handlers.DownloadDocument)
 
 			protected.PUT("/users/:id/role", handlers.UpdateUserRole)
 		}

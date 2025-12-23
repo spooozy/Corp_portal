@@ -105,11 +105,12 @@ type News struct {
 }
 
 type Document struct {
-	ID          uint   `gorm:"primaryKey" json:"id"`
-	Title       string `gorm:"not null" json:"title"`
-	Description string `json:"description"`
-	FileURL     string `gorm:"not null" json:"file_url"`
-	Tags        []Tag  `gorm:"many2many:document_tags;" json:"tags"`
+	ID           uint   `gorm:"primaryKey" json:"id"`
+	Title        string `gorm:"not null" json:"title"`
+	Description  string `json:"description"`
+	FileURL      string `gorm:"not null" json:"file_url"`
+	OriginalName string `json:"original_name"`
+	Tags         []Tag  `gorm:"many2many:document_tags;" json:"tags"`
 
 	OrganizationID uint  `gorm:"not null" json:"organization_id"`
 	TeamID         *uint `json:"team_id"`
