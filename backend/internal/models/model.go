@@ -120,3 +120,41 @@ type Document struct {
 
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type TaskStatus string
+
+const (
+	StatusTodo       TaskStatus = "TODO"
+	StatusInProgress TaskStatus = "IN_PROGRESS"
+	StatusReview     TaskStatus = "REVIEW"
+	StatusDone       TaskStatus = "DONE"
+)
+
+type TaskPriority string
+
+const (
+	PriorityLow    TaskPriority = "LOW"
+	PriorityMedium TaskPriority = "MEDIUM"
+	PriorityHigh   TaskPriority = "HIGH"
+)
+
+type Task struct {
+	ID          uint         `gorm:"primaryKey" json:"id"`
+	Title       string       `gorm:"not null" json:"title"`
+	Description string       `json:"description"`
+	Status      TaskStatus   `gorm:"default:'TODO'" json:"status"`
+	Priority    TaskPriority `gorm:"default:'MEDIUM'" json:"priority"`
+	DueDate     *time.Time   `json:"due_date"`
+
+	OrganizationID uint `json:"organization_id"`
+	TeamID         uint `json:"team_id"`
+
+	CreatorID uint `json:"creator_id"`
+	Creator   User `gorm:"foreignKey:CreatorID" json:"creator"`
+
+	AssigneeID *uint `json:"assignee_id"`
+	Assignee   *User `gorm:"foreignKey:AssigneeID" json:"assignee"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

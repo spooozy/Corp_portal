@@ -7,6 +7,8 @@ import {
 import BusinessIcon from '@mui/icons-material/Business';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import AssignmentIcon from '@mui/icons-material/Assignment'; 
+import DescriptionIcon from '@mui/icons-material/Description';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -47,7 +49,8 @@ export default function Layout() {
           borderBottom: '1px solid', 
           borderColor: 'divider',
           backdropFilter: 'blur(8px)',
-          background: 'rgba(255, 255, 255, 0.9)'
+          background: 'rgba(255, 255, 255, 0.9)',
+          zIndex: (theme) => theme.zIndex.drawer + 1
         }}
       >
         <Container maxWidth="lg">
@@ -63,18 +66,29 @@ export default function Layout() {
                 Croco
               </Typography>
             </Box>
+
             {user && (
               <Stack direction="row" spacing={1} sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
                 <NavLink to="/" style={navLinkStyle}>
                   Главная
                 </NavLink>
+                
                 {user.organization_id && (
-                   <NavLink to="/documents" style={navLinkStyle}>
-                     Документы
-                   </NavLink>
+                  <>
+                    <NavLink to="/documents" style={navLinkStyle}>
+                      <DescriptionIcon sx={{ fontSize: 20 }} />
+                      Документы
+                    </NavLink>
+
+                    <NavLink to="/tasks" style={navLinkStyle}>
+                      <AssignmentIcon sx={{ fontSize: 20 }} />
+                      Задачи
+                    </NavLink>
+                  </>
                 )}
               </Stack>
             )}
+
             <Box display="flex" alignItems="center" gap={2}>
               {user ? (
                 <>
@@ -124,7 +138,11 @@ export default function Layout() {
           </Toolbar>
         </Container>
       </AppBar>
-      <Container maxWidth="lg" sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column' }}>
+
+      <Container 
+        maxWidth={location.pathname === '/tasks' ? 'xl' : 'lg'}
+        sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column' }}
+      >
         <Outlet />
       </Container>
     </Box>

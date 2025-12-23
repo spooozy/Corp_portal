@@ -95,6 +95,11 @@ func main() {
 			protected.GET("/documents/download/:id", handlers.DownloadDocument)
 
 			protected.PUT("/users/:id/role", handlers.UpdateUserRole)
+
+			protected.GET("/tasks", handlers.GetTasks)
+			protected.POST("/tasks", handlers.CreateTask)
+			protected.PUT("/tasks/:id", handlers.UpdateTask)
+			protected.DELETE("/tasks/:id", handlers.DeleteTask)
 		}
 	}
 

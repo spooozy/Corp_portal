@@ -33,6 +33,7 @@ func Connect() {
 		&models.Invite{},
 		&models.News{},
 		&models.Document{},
+		&models.Task{},
 	)
 	if err != nil {
 		log.Fatal("Migration failed: ", err)

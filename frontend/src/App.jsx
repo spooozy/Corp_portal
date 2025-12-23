@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Documents from './pages/Documents';
 import JoinPage from './pages/JoinPage';
+import TaskBoard from './pages/TaskBoard';
 import UserProfile from './pages/UserProfile';
 import TeamProfile from './pages/TeamProfile';
 import OrgProfile from './pages/OrgProfile'; 
@@ -34,6 +35,7 @@ function App() {
             <Route path="/join" element={<JoinPage />} />
             <Route path="/teams/:id" element={<TeamProfile />} />
             <Route path="/organizations/:id" element={<OrgProfile />} />
+            <Route path="/tasks" element={<TaskBoard />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/" />} />
