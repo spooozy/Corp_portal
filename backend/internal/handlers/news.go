@@ -25,6 +25,8 @@ func GetTags(c *gin.Context) {
 func GetNewsFeed(c *gin.Context) {
 	userID, _ := c.Get("userID")
 	searchQuery := c.Query("search")
+	tagIDsParam := c.Query("tag_ids")
+	authorIDsParam := c.Query("author_ids")
 
 	var user models.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
@@ -43,18 +45,32 @@ func GetNewsFeed(c *gin.Context) {
 		Where("organization_id = ?", *user.OrganizationID).
 		Preload("Author").
 		Preload("Tags")
+
 	if user.Role < models.RoleAdmin {
 		if user.TeamID != nil {
-			db = db.Where("team_id IS NULL OR team_id = ?", *user.TeamID)
+			db = db.Where("news.team_id IS NULL OR news.team_id = ?", *user.TeamID)
 		} else {
-			db = db.Where("team_id IS NULL")
+			db = db.Where("news.team_id IS NULL")
 		}
 	}
+
+	if authorIDsParam != "" {
+		authorIDs := strings.Split(authorIDsParam, ",")
+		db = db.Where("news.author_id IN ?", authorIDs)
+	}
+
+	if tagIDsParam != "" {
+		tagIDs := strings.Split(tagIDsParam, ",")
+		db = db.Joins("JOIN news_tags filter_nt ON filter_nt.news_id = news.id").
+			Where("filter_nt.tag_id IN ?", tagIDs).
+			Group("news_id")
+	}
+
 	if searchQuery != "" {
 		query := "%" + searchQuery + "%"
 		db = db.Joins("LEFT JOIN news_tags nt ON nt.news_id = news.id").
 			Joins("LEFT JOIN tags t ON t.id = nt.tag_id").
-			Where("news.title LIKE ? OR news.content LIKE ? OR t.name LIKE ?", query, query, query).
+			Where("(news.title LIKE ? OR news.content LIKE ? OR t.name LIKE ?)", query, query, query).
 			Group("news.id")
 	}
 
@@ -146,4 +162,25 @@ func CreateNews(c *gin.Context) {
 	}
 	news.Author = user
 	c.JSON(http.StatusCreated, news)
+}
+
+func GetOrganizationAuthors(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	var currentUser models.User
+	if err := database.DB.First(&currentUser, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var authors []models.User
+	err := database.DB.Where("organization_id = ? AND role > ?", currentUser.OrganizationID, 1).
+		Select("id, full_name").
+		Order("full_name asc").
+		Find(&authors).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch authors"})
+		return
+	}
+	c.JSON(http.StatusOK, authors)
 }

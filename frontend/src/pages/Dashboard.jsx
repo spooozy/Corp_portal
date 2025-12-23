@@ -3,9 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Box, Typography, Container, Grid, Paper, TextField, 
   InputAdornment, Button, Chip, Skeleton, Card, CardMedia, CardActionArea,
-  FormControlLabel, Checkbox
+  FormControlLabel, Checkbox, Autocomplete
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ArticleIcon from '@mui/icons-material/Article';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -18,12 +19,36 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [search, setSearch] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedAuthors, setSelectedAuthors] = useState([]);
   const [showCompanyOnly, setShowCompanyOnly] = useState(false);
+
+  const [availableTags, setAvailableTags] = useState([]);
+  const [availableAuthors, setAvailableAuthors] = useState([]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedNews, setSelectedNews] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+        const token = localStorage.getItem('token');
+        const headers = { 'Authorization': `Bearer ${token}` };
+        
+        try {
+            const [tagsRes, authorsRes] = await Promise.all([
+                fetch('http://localhost:8080/api/tags', { headers }),
+                fetch('http://localhost:8080/api/authors', { headers })
+            ]);
+            if (tagsRes.ok) setAvailableTags(await tagsRes.ok ? await tagsRes.json() : []);
+            if (authorsRes.ok) setAvailableAuthors(await authorsRes.json());
+        } catch (e) { console.error("Metadata load error", e); }
+    };
+    if (user?.organization_id) fetchMetadata();
+  }, [user]);
+
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -31,7 +56,13 @@ export default function Dashboard() {
       setLoading(true);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8080/api/news?search=${search}`, {
+        
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (selectedTags.length > 0) params.append('tag_ids', selectedTags.map(t => t.id).join(','));
+        if (selectedAuthors.length > 0) params.append('author_ids', selectedAuthors.map(a => a.id).join(','));
+
+        const response = await fetch(`http://localhost:8080/api/news?${params.toString()}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -46,7 +77,7 @@ export default function Dashboard() {
     };
     const timeoutId = setTimeout(fetchNews, 500);
     return () => clearTimeout(timeoutId);
-  }, [search, user, refreshTrigger]);
+  }, [search, selectedTags, selectedAuthors, user, refreshTrigger]);
 
   if (user && !user.organization_id) return <Onboarding />;
 
@@ -60,61 +91,73 @@ export default function Dashboard() {
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" fontWeight="bold">Лента</Typography>
             {user?.role >= 2 && (
-                <Button 
-                    variant="contained" color="primary" startIcon={<AddCircleOutlineIcon />}
-                    onClick={() => setIsCreateModalOpen(true)}
-                >
-                    Создать
-                </Button>
+                <Button variant="contained" onClick={() => setIsCreateModalOpen(true)}>Создать</Button>
             )}
         </Box>
 
-        <Paper sx={{ p: 2, mb: 4, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <TextField
-                placeholder="Поиск..." variant="outlined" size="small"
-                value={search} onChange={(e) => setSearch(e.target.value)}
-                sx={{ flex: 1 }}
-                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
-            />
-            <FormControlLabel
-                control={
-                    <Checkbox 
-                        checked={showCompanyOnly}
-                        onChange={(e) => setShowCompanyOnly(e.target.checked)}
-                        color="primary"
+        <Paper sx={{ p: 2, mb: 4, borderRadius: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+                <Grid size={12}>
+                    <TextField
+                        fullWidth placeholder="Поиск в новостях..." size="small"
+                        value={search} onChange={(e) => setSearch(e.target.value)}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
                     />
-                }
-                label={<BusinessIcon fontSize="small" color="action" />}
-                sx={{ mr: 0 }}
-            />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 5 }}>
+                <Autocomplete
+                    multiple
+                    size="small"
+                    options={availableTags}
+                    getOptionLabel={(option) => option.name}
+                    value={selectedTags}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    onChange={(_, newValue) => setSelectedTags(newValue)}
+                    renderInput={(params) => <TextField {...params} label="Теги" placeholder="#фичи" />}
+                    renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                            const { key, ...tagProps } = getTagProps({ index });
+                            return (
+                                <Chip 
+                                    key={key}
+                                    label={option.name} 
+                                    size="small" 
+                                    {...tagProps} 
+                                />
+                            );
+                        })
+                    }
+                />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 5 }}>
+                    <Autocomplete
+                        multiple size="small"
+                        options={availableAuthors}
+                        getOptionLabel={(option) => option.full_name}
+                        value={selectedAuthors}
+                        onChange={(_, newValue) => setSelectedAuthors(newValue)}
+                        renderInput={(params) => <TextField {...params} label="Авторы" />}
+                    />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 2 }} sx={{ textAlign: 'right' }}>
+                    <FormControlLabel
+                        control={<Checkbox checked={showCompanyOnly} onChange={(e) => setShowCompanyOnly(e.target.checked)} />}
+                        label={<BusinessIcon color="action" />}
+                    />
+                </Grid>
+            </Grid>
         </Paper>
 
         <Grid container spacing={2}>
             {loading ? (
-                [1, 2, 3].map((n) => (
-                    <Grid key={n} size={12}>
-                        <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 3 }} />
-                    </Grid>
-                ))
-            ) : displayedNews.length > 0 ? (
-                displayedNews.map((item) => (
-                    /* ВАЖНО: Вместо item xs={12} используем size={12} */
-                    <Grid key={item.id} size={12}>
-                        <CompactNewsCard 
-                            item={item} 
-                            onClick={() => setSelectedNews(item)} 
-                        />
-                    </Grid>
-                ))
-            ) : (
-                <Grid size={12} sx={{ textAlign: 'center', mt: 4 }}>
-                    <ArticleIcon sx={{ fontSize: 60, opacity: 0.3 }} />
-                    <Typography color="text.secondary">
-                        {showCompanyOnly ? "Нет новостей компании" : "Новостей нет"}
-                    </Typography>
+                 [1, 2, 3].map(n => <Grid key={n} size={12}><Skeleton height={160} sx={{ borderRadius: 3 }} /></Grid>)
+            ) : displayedNews.map(item => (
+                <Grid key={item.id} size={12}>
+                    <CompactNewsCard item={item} onClick={() => setSelectedNews(item)} />
                 </Grid>
-            )}
+            ))}
         </Grid>
+
 
         <CreateNewsModal 
             open={isCreateModalOpen} 

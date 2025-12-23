@@ -87,6 +87,7 @@ func main() {
 			protected.GET("/news", handlers.GetNewsFeed)
 			protected.POST("/news", handlers.CreateNews)
 			protected.GET("/tags", handlers.GetTags)
+			protected.GET("/authors", handlers.GetOrganizationAuthors)
 
 			protected.GET("/documents", handlers.GetDocuments)
 			protected.POST("/documents", handlers.UploadDocument)
