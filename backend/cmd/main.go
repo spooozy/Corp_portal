@@ -74,6 +74,7 @@ func main() {
 			protected.DELETE("/teams/:id/members/:userId", handlers.RemoveTeamMember)
 			protected.DELETE("/teams/:id", handlers.DeleteTeam)
 			protected.PUT("/teams/:id/leader", handlers.UpdateTeamLeader)
+			protected.GET("/teamsIn", handlers.GetOrganizationTeams)
 
 			protected.GET("/organizations/:id/free-users", handlers.GetFreeUsersInOrganization)
 

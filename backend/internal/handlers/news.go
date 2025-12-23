@@ -86,15 +86,18 @@ func GetNewsFeed(c *gin.Context) {
 func CreateNews(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
 	role := c.MustGet("role").(models.Role)
+
 	title := c.PostForm("title")
 	content := c.PostForm("content")
 	forTeamStr := c.PostForm("for_team")
 	tagsIDsStr := c.PostForm("tags_ids")
+	targetTeamIDStr := c.PostForm("target_team_id")
 
 	if title == "" || content == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Title and Content are required"})
 		return
 	}
+
 	var imagePath string
 	file, err := c.FormFile("image")
 	if err == nil {
@@ -128,6 +131,7 @@ func CreateNews(c *gin.Context) {
 			database.DB.Where("id IN ?", ids).Find(&tags)
 		}
 	}
+
 	news := models.News{
 		Title:          title,
 		Content:        content,
@@ -137,30 +141,49 @@ func CreateNews(c *gin.Context) {
 		AuthorID:       userID,
 		CreatedAt:      time.Now(),
 	}
+
 	forTeam, _ := strconv.ParseBool(forTeamStr)
 
 	if forTeam {
-		if user.TeamID == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "You are not in a team"})
-			return
+		if role >= 3 && targetTeamIDStr != "" {
+			tID, err := strconv.ParseUint(targetTeamIDStr, 10, 32)
+			if err == nil {
+				teamID := uint(tID)
+
+				var checkTeam models.Team
+				err := database.DB.Where("id = ? AND organization_id = ?", teamID, *user.OrganizationID).First(&checkTeam).Error
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target team for your organization"})
+					return
+				}
+				news.TeamID = &teamID
+			}
+		} else {
+			if user.TeamID == nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "You must be in a team to post team news (or select one as admin)"})
+				return
+			}
+
+			isTeamLeader := user.Team != nil && user.Team.LeaderID != nil && *user.Team.LeaderID == user.ID
+			if role < models.RoleAdmin && !isTeamLeader {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Only team leaders can post team news"})
+				return
+			}
+			news.TeamID = user.TeamID
 		}
-		isTeamLeader := user.Team != nil && user.Team.LeaderID != nil && *user.Team.LeaderID == user.ID
-		if role < models.RoleAdmin && !isTeamLeader {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Only team leaders can post team news"})
-			return
-		}
-		news.TeamID = user.TeamID
 	} else {
 		if role < models.RoleAdmin {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can post global news"})
 			return
 		}
+		news.TeamID = nil
 	}
 
 	if err := database.DB.Create(&news).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create news"})
 		return
 	}
+
 	news.Author = user
 	c.JSON(http.StatusCreated, news)
 }

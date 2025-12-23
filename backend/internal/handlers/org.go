@@ -793,3 +793,20 @@ func UpdateTeamLeader(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Leader updated successfully"})
 }
+
+func GetOrganizationTeams(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	var user models.User
+	database.DB.First(&user, userID)
+
+	var teams []models.Team
+	err := database.DB.Where("organization_id = ?", user.OrganizationID).
+		Order("name asc").
+		Find(&teams).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch teams"})
+		return
+	}
+	c.JSON(http.StatusOK, teams)
+}
