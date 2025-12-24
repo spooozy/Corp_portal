@@ -2,7 +2,7 @@
 
 This repository contains a project for creating an internal portal for organizations
 
-#### A brief video overview is available here: https://youtu.be/mUrxtgLOtJw
+#### A brief video overview is available here: https://youtu.be/DBbSMIw8BJI
 
 #### You can read more about the project in the explanatory note `src/Пояснительная записка_251002_Маталыга.pdf`
 
