@@ -3,33 +3,39 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Box, Typography, Container, Grid, Paper, TextField, 
   InputAdornment, Button, Chip, Skeleton, Card, CardActionArea, 
-  FormControlLabel, Checkbox, Avatar, Autocomplete, IconButton
+  FormControlLabel, Checkbox, Avatar, Autocomplete, IconButton, useTheme, alpha, Tooltip
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import DownloadIcon from '@mui/icons-material/Download';
-import BusinessIcon from '@mui/icons-material/Business';
-import DeleteIcon from '@mui/icons-material/Delete';
-import GroupsIcon from '@mui/icons-material/Groups';
+
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import BusinessOutlinedIcon from '@mui/icons-material/BusinessOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 import Onboarding from '../components/Onboarding';
 import UploadDocumentModal from '../components/UploadDocumentModal';
 
 export default function Documents() {
   const { user } = useAuth();
+  const theme = useTheme();
+  const ACCENT_COLOR = theme.palette.primary.main;
+
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedAuthors, setSelectedAuthors] = useState([]);
+  const [selectedTeams, setSelectedTeams] = useState([]);
   const [showCompanyOnly, setShowCompanyOnly] = useState(false);
+  
   const [availableTags, setAvailableTags] = useState([]);
   const [availableAuthors, setAvailableAuthors] = useState([]);
+  const [availableTeams, setAvailableTeams] = useState([]);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [selectedTeams, setSelectedTeams] = useState([]);
-  const [availableTeams, setAvailableTeams] = useState([]);
+  
   const isAdminPlus = user?.role >= 3;
 
   useEffect(() => {
@@ -51,7 +57,7 @@ export default function Documents() {
         } catch (e) { console.error("Metadata error", e); }
     };
     if (user?.organization_id) fetchMetadata();
-  }, [user]);
+  }, [user, isAdminPlus]);
 
   useEffect(() => {
     const fetchDocs = async () => {
@@ -64,12 +70,13 @@ export default function Documents() {
         if (selectedTags.length > 0) params.append('tag_ids', selectedTags.map(t => t.id).join(','));
         if (selectedAuthors.length > 0) params.append('author_ids', selectedAuthors.map(a => a.id).join(','));
         if (selectedTeams.length > 0) params.append('team_ids', selectedTeams.map(t => t.id).join(','));
+        
         const response = await fetch(`http://localhost:8080/api/documents?${params.toString()}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
           const data = await response.json();
-          setDocs(data);
+          setDocs(Array.isArray(data) ? data : []);
         }
       } catch (error) { console.error("Load error", error); }
       finally { setLoading(false); }
@@ -108,7 +115,6 @@ export default function Documents() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
     } catch (error) {
-        console.error("Download error:", error);
         alert("Не удалось скачать файл");
     }
   };
@@ -128,28 +134,39 @@ export default function Documents() {
   if (user && !user.organization_id) return <Onboarding />;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 2 }}>
       <Container maxWidth="md">
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
-                <Typography variant="h4" fontWeight="bold">Документы</Typography>
-                <Typography variant="body1" color="text.secondary">База знаний организации</Typography>
+                <Typography variant="h4" fontWeight="800" sx={{ letterSpacing: '-0.03em' }}>Документы</Typography>
+                <Typography variant="body2" color="text.secondary">Централизованная база знаний</Typography>
             </Box>
-            {user?.role >= 1 && (
-                <Button variant="contained" startIcon={<CloudUploadIcon />} onClick={() => setIsModalOpen(true)}>Загрузить</Button>
+            {user?.role > 1 && (
+                <Button 
+                    variant="contained" 
+                    disableElevation
+                    startIcon={<CloudUploadOutlinedIcon />} 
+                    onClick={() => setIsModalOpen(true)}
+                    sx={{ borderRadius: '8px', bgcolor: ACCENT_COLOR, textTransform: 'none', fontWeight: 600 }}
+                >
+                    Загрузить
+                </Button>
             )}
         </Box>
 
-        <Paper sx={{ p: 2, mb: 4, borderRadius: 3 }}>
+        <Paper elevation={0} sx={{ p: 2, mb: 4, borderRadius: '12px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
             <Grid container spacing={2} alignItems="center">
                 <Grid size={12}>
                     <TextField
-                        fullWidth placeholder="Поиск..." size="small"
+                        fullWidth placeholder="Поиск по названию или описанию..." size="small"
                         value={search} onChange={(e) => setSearch(e.target.value)}
-                        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                        InputProps={{ 
+                            startAdornment: <InputAdornment position="start"><SearchOutlinedIcon fontSize="small" /></InputAdornment>,
+                            sx: { borderRadius: '8px' }
+                        }}
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 5 }}>
+                <Grid size={{ xs: 12, sm: isAdminPlus ? 4 : 5 }}>
                     <Autocomplete
                         multiple size="small" options={availableTags} getOptionLabel={(o) => o.name}
                         value={selectedTags} isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -158,12 +175,12 @@ export default function Documents() {
                         renderTags={(value, getTagProps) =>
                             value.map((o, i) => {
                                 const { key, ...tagProps } = getTagProps({ index: i });
-                                return <Chip key={key} label={o.name} size="small" {...tagProps} />;
+                                return <Chip key={key} label={o.name} size="small" variant="outlined" sx={{ borderRadius: '4px' }} {...tagProps} />;
                             })
                         }
                     />
                 </Grid>
-                <Grid size={{ xs: 12, sm: 5 }}>
+                <Grid size={{ xs: 12, sm: isAdminPlus ? 4 : 5 }}>
                     <Autocomplete
                         multiple size="small" options={availableAuthors} getOptionLabel={(o) => o.full_name || ''}
                         value={selectedAuthors} isOptionEqualToValue={(o, v) => o.id === v.id}
@@ -178,27 +195,25 @@ export default function Documents() {
                             value={selectedTeams} isOptionEqualToValue={(o, v) => o.id === v.id}
                             onChange={(_, v) => setSelectedTeams(v)}
                             renderInput={(p) => <TextField {...p} label="Команды" />}
-                            renderTags={(value, getTagProps) =>
-                                value.map((o, i) => {
-                                    const { key, ...tagProps } = getTagProps({ index: i });
-                                    return <Chip key={key} label={o.name} size="small" {...tagProps} />;
-                                })
-                            }
                         />
                     </Grid>
                 )}
-                <Grid size={{ xs: 12, sm: 2 }} sx={{ textAlign: 'right' }}>
-                    <FormControlLabel
-                        control={<Checkbox checked={showCompanyOnly} onChange={(e) => setShowCompanyOnly(e.target.checked)} />}
-                        label={<BusinessIcon fontSize="small" color="action" />}
-                    />
+                <Grid size={{ xs: 12, sm: isAdminPlus ? 1 : 2 }} sx={{ textAlign: 'right' }}>
+                    <Tooltip title="Только документы организации">
+                        <Checkbox 
+                            checked={showCompanyOnly} 
+                            onChange={(e) => setShowCompanyOnly(e.target.checked)} 
+                            icon={<BusinessOutlinedIcon />}
+                            checkedIcon={<BusinessOutlinedIcon sx={{ color: ACCENT_COLOR }} />}
+                        />
+                    </Tooltip>
                 </Grid>
             </Grid>
         </Paper>
 
-        <Grid container spacing={2}>
+        <Grid container spacing={2.5}>
             {loading ? (
-                [1, 2, 3].map((n) => <Grid key={n} size={12}><Skeleton variant="rectangular" height={100} sx={{ borderRadius: 3 }} /></Grid>)
+                [1, 2, 3].map((n) => <Grid key={n} size={12}><Skeleton variant="rectangular" height={100} sx={{ borderRadius: '12px' }} /></Grid>)
             ) : (showCompanyOnly ? docs.filter(d => !d.team_id) : docs).map((item) => (
                 <Grid key={item.id} size={12}>
                     <DocumentCard 
@@ -219,30 +234,48 @@ export default function Documents() {
 }
 
 function DocumentCard({ item, currentUserId, userRole, onDelete, onDownload }) {
-    const formatDate = (dateString) => new Date(dateString).toLocaleDateString('ru-RU');
+    const theme = useTheme();
+    const ACCENT_COLOR = theme.palette.primary.main;
+    const formatDate = (dateString) => new Date(dateString).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 
-    const isAuthor = Number(item.author_id) === Number(currentUserId);
-    const isAdmin = Number(userRole) >= 2;
+    const isAuthor = Number(item.author_id || item.author?.id) === Number(currentUserId);
+    const isAdmin = Number(userRole) >= 3;
     const canManage = isAuthor || isAdmin;
 
     return (
         <Card 
-            elevation={1}
+            elevation={0}
             sx={{ 
-                width: '100%', borderRadius: 3, position: 'relative', transition: '0.2s',
-                '&:hover': { boxShadow: 3, transform: 'translateY(-2px)', '& .doc-actions': { opacity: 1 } }
+                width: '100%', borderRadius: '12px', position: 'relative', transition: 'all 0.2s ease',
+                border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+                '&:hover': { 
+                    borderColor: ACCENT_COLOR, 
+                    transform: 'translateY(-2px)', 
+                    '& .doc-actions': { opacity: 1 } 
+                }
             }}
         >
-            <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-                <Avatar sx={{ bgcolor: '#e3f2fd', color: '#1976d2', width: 56, height: 56, mr: 2, flexShrink: 0 }}>
-                    <InsertDriveFileIcon fontSize="large" />
+            <Box sx={{ display: 'flex', alignItems: 'center', p: 2.5 }}>
+                <Avatar sx={{ 
+                    bgcolor: alpha(ACCENT_COLOR, 0.1), 
+                    color: ACCENT_COLOR, 
+                    width: 52, height: 52, mr: 3, flexShrink: 0,
+                    borderRadius: '10px',
+                    border: '1px solid',
+                    borderColor: alpha(ACCENT_COLOR, 0.2)
+                }}>
+                    <DescriptionOutlinedIcon fontSize="medium" />
                 </Avatar>
                 
-                <Box sx={{ flex: 1, minWidth: 0, pr: 6 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 1 }}>
+                <Box sx={{ flex: 1, minWidth: 0, pr: 8 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, gap: 1.5 }}>
                         <Typography 
-                            variant="h6" fontWeight="bold" noWrap 
-                            sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                            variant="h6" fontWeight="700" noWrap 
+                            sx={{ 
+                                cursor: 'pointer', 
+                                transition: '0.2s',
+                                '&:hover': { color: ACCENT_COLOR, textDecoration: 'underline' } 
+                            }}
                             onClick={() => onDownload(item.id, item.title)}
                         >
                             {item.title}
@@ -250,30 +283,45 @@ function DocumentCard({ item, currentUserId, userRole, onDelete, onDownload }) {
                         <Chip 
                             label={item.team_id ? "Команда" : "Организация"} 
                             size="small" variant="outlined"
-                            sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }}
+                            sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600, borderRadius: '4px', color: 'text.secondary' }}
                         />
                     </Box>
-                    <Typography variant="body2" color="text.secondary" noWrap sx={{ mb: 1 }}>{item.description || "Нет описания"}</Typography>
+                    <Typography variant="body2" color="text.secondary" noWrap sx={{ mb: 1.5, opacity: 0.8 }}>{item.description || "Нет описания"}</Typography>
+                    
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                        <Box sx={{ display: 'flex', gap: 0.5, overflow: 'hidden' }}>
-                            {item.tags?.slice(0, 3).map(tag => <Chip key={tag.id} label={`#${tag.name}`} size="small" sx={{ height: 18, fontSize: '0.7rem' }} />)}
+                        <Box sx={{ display: 'flex', gap: 1, overflow: 'hidden' }}>
+                            {item.tags?.slice(0, 3).map(tag => (
+                                <Typography key={tag.id} sx={{ fontSize: '0.75rem', color: ACCENT_COLOR, fontWeight: 600 }}>
+                                    #{tag.name}
+                                </Typography>
+                            ))}
                         </Box>
-                        <Typography variant="caption" color="text.secondary">{formatDate(item.created_at)} • {item.author?.full_name}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 500 }}>
+                            {formatDate(item.created_at)} • <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600 }}>{item.author?.full_name}</Box>
+                        </Typography>
                     </Box>
                 </Box>
                 
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <IconButton size="small" onClick={() => onDownload(item.id, item.title)}>
-                        <DownloadIcon color="action" />
+                <Box sx={{ 
+                    position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                    display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' 
+                }}>
+                    <IconButton size="small" onClick={() => onDownload(item.id, item.title)} sx={{ color: 'text.secondary', '&:hover': { color: ACCENT_COLOR } }}>
+                        <FileDownloadOutlinedIcon fontSize="small" />
                     </IconButton>
 
                     {canManage && (
                         <IconButton 
-                            className="doc-actions" size="small" 
-                            sx={{ opacity: 0, transition: '0.2s', color: 'error.main' }} 
+                            className="doc-actions" 
+                            size="small" 
+                            sx={{ 
+                                opacity: 0, transition: '0.2s', 
+                                color: 'text.secondary', 
+                                '&:hover': { color: '#f44336' } 
+                            }} 
                             onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                         >
-                            <DeleteIcon fontSize="small" />
+                            <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                     )}
                 </Box>

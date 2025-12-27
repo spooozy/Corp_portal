@@ -1,19 +1,29 @@
 import { Outlet, Link, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useColorMode } from '../context/ThemeContext';
 import { 
   AppBar, Toolbar, Typography, Button, Container, Box, 
-  Avatar, IconButton, Tooltip, Stack, Divider, useTheme, alpha 
+  Avatar, IconButton, Tooltip, Stack, Divider, alpha,
+  useTheme
 } from '@mui/material';
-import BusinessIcon from '@mui/icons-material/Business';
-import LogoutIcon from '@mui/icons-material/Logout';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import AssignmentIcon from '@mui/icons-material/Assignment'; 
-import DescriptionIcon from '@mui/icons-material/Description';
+
+import BusinessOutlinedIcon from '@mui/icons-material/BusinessOutlined';
+import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined'; 
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { toggleColorMode } = useColorMode();
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
+  
+  const ACCENT_COLOR = theme.palette.primary.main; 
+  const isDark = theme.palette.mode === 'dark';
 
   const handleLogout = () => {
     logout();
@@ -28,60 +38,74 @@ export default function Layout() {
 
   const navLinkStyle = ({ isActive }) => ({
     textDecoration: 'none',
-    color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
-    fontWeight: isActive ? 600 : 500,
-    padding: '6px 16px',
+    color: isActive ? theme.palette.text.primary : theme.palette.text.secondary,
+    fontWeight: isActive ? 600 : 400,
+    fontSize: '0.875rem',
+    padding: '6px 12px',
     borderRadius: '8px',
-    backgroundColor: isActive ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-    transition: 'all 0.2s',
+    transition: 'all 0.2s ease',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px'
+    gap: '8px',
+    backgroundColor: isActive ? alpha(ACCENT_COLOR, 0.12) : 'transparent',
+    '&:hover': {
+      backgroundColor: isActive ? alpha(ACCENT_COLOR, 0.18) : alpha(ACCENT_COLOR, 0.05),
+      color: theme.palette.text.primary
+    },
+    '& svg': {
+      color: isActive ? ACCENT_COLOR : 'inherit',
+    }
   });
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f4f6f8' }}>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      bgcolor: 'background.default',
+      transition: 'background 0.3s ease' 
+    }}>
       <AppBar 
         position="sticky" 
         elevation={0} 
         sx={{ 
-          bgcolor: 'background.paper', 
-          borderBottom: '1px solid', 
+          bgcolor: alpha(theme.palette.background.paper, 0.8), 
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid',
           borderColor: 'divider',
-          backdropFilter: 'blur(8px)',
-          background: 'rgba(255, 255, 255, 0.9)',
           zIndex: (theme) => theme.zIndex.drawer + 1
         }}
       >
         <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: 70 }}>
-            <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'text.primary', mr: 4 }}>
+          <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: 64 }}>
+            
+            <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'text.primary' }}>
               <Box sx={{ 
-                p: 1, mr: 1.5, borderRadius: 2, 
-                bgcolor: 'primary.main', color: 'white', display: 'flex' 
+                p: 0.8, mr: 1.2, borderRadius: 1.5, 
+                bgcolor: ACCENT_COLOR, color: '#fff', display: 'flex',
+                boxShadow: isDark ? `0 0 15px ${alpha(ACCENT_COLOR, 0.4)}` : `0 4px 10px ${alpha(ACCENT_COLOR, 0.3)}`
               }}>
-                <BusinessIcon />
+                <BusinessOutlinedIcon fontSize="small" />
               </Box>
-              <Typography variant="h6" fontWeight="bold" sx={{ letterSpacing: -0.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.03em' }}>
                 Croco
               </Typography>
             </Box>
 
             {user && (
-              <Stack direction="row" spacing={1} sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+              <Stack direction="row" spacing={1} sx={{ flexGrow: 1, ml: 6, display: { xs: 'none', md: 'flex' } }}>
                 <NavLink to="/" style={navLinkStyle}>
+                  <HomeOutlinedIcon sx={{ fontSize: 18 }} />
                   Главная
                 </NavLink>
-                
                 {user.organization_id && (
                   <>
                     <NavLink to="/documents" style={navLinkStyle}>
-                      <DescriptionIcon sx={{ fontSize: 20 }} />
+                      <DescriptionOutlinedIcon sx={{ fontSize: 18 }} />
                       Документы
                     </NavLink>
-
                     <NavLink to="/tasks" style={navLinkStyle}>
-                      <AssignmentIcon sx={{ fontSize: 20 }} />
+                      <AssignmentOutlinedIcon sx={{ fontSize: 18 }} />
                       Задачи
                     </NavLink>
                   </>
@@ -89,47 +113,62 @@ export default function Layout() {
               </Stack>
             )}
 
-            <Box display="flex" alignItems="center" gap={2}>
+            <Box display="flex" alignItems="center" gap={1}>
+              
+              <Tooltip title={isDark ? "Светлая тема" : "Темная тема"}>
+                <IconButton onClick={toggleColorMode} size="small" sx={{ color: 'text.secondary', mr: 1 }}>
+                  {isDark ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+
               {user ? (
                 <>
                   <Box 
                     component={Link} 
                     to="/profile" 
                     sx={{ 
-                      display: 'flex', alignItems: 'center', gap: 1.5, 
+                      display: 'flex', alignItems: 'center', gap: 1.2, 
                       textDecoration: 'none', 
-                      p: 0.5, pr: 2, borderRadius: 50,
-                      border: '1px solid', borderColor: 'transparent',
+                      p: '4px 12px 4px 4px', borderRadius: '20px',
                       transition: 'all 0.2s',
-                      '&:hover': { bgcolor: 'action.hover', borderColor: 'divider' }
+                      border: '1px solid transparent',
+                      '&:hover': { 
+                        bgcolor: alpha(ACCENT_COLOR, 0.05),
+                        borderColor: alpha(ACCENT_COLOR, 0.1)
+                      }
                     }}
                   >
                     <Avatar 
                       src={getImageUrl(user.avatar_url)} 
-                      sx={{ width: 36, height: 36, bgcolor: 'secondary.main', fontSize: '1rem' }}
+                      sx={{ 
+                        width: 32, height: 32, 
+                        border: `1.5px solid ${alpha(ACCENT_COLOR, 0.2)}`,
+                        bgcolor: alpha(ACCENT_COLOR, 0.1), 
+                        color: ACCENT_COLOR,
+                        fontSize: '0.85rem', fontWeight: 700
+                      }}
                     >
                       {user.full_name?.[0]}
                     </Avatar>
-                    <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                      <Typography variant="subtitle2" color="text.primary" fontWeight="600" lineHeight={1.2}>
-                        {user.full_name.split(' ')[0]}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Профиль
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
+                      {user.full_name.split(' ')[0]}
+                    </Typography>
                   </Box>
 
-                  <Divider orientation="vertical" flexItem variant="middle" sx={{ height: 24, my: 'auto' }} />
+                  <Divider orientation="vertical" flexItem sx={{ mx: 1, my: 2.2, borderColor: 'divider' }} />
 
-                  <Tooltip title="Выйти из системы">
-                    <IconButton onClick={handleLogout} color="default" size="small">
-                      <LogoutIcon fontSize="small" />
+                  <Tooltip title="Выход">
+                    <IconButton onClick={handleLogout} size="small" sx={{ color: 'text.secondary', '&:hover': { color: '#f44336' } }}>
+                      <LogoutOutlinedIcon sx={{ fontSize: 20 }} />
                     </IconButton>
                   </Tooltip>
                 </>
               ) : (
-                <Button variant="contained" component={Link} to="/login">
+                <Button 
+                  component={Link} 
+                  to="/login" 
+                  sx={{ color: ACCENT_COLOR, fontWeight: 700, textTransform: 'none' }}
+                >
                   Войти
                 </Button>
               )}
@@ -139,12 +178,14 @@ export default function Layout() {
         </Container>
       </AppBar>
 
-      <Container 
-        maxWidth={location.pathname === '/tasks' ? 'xl' : 'lg'}
-        sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column' }}
-      >
-        <Outlet />
-      </Container>
+      <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
+        <Container 
+          maxWidth={location.pathname === '/tasks' ? 'xl' : 'lg'}
+          sx={{ py: 6 }}
+        >
+          <Outlet />
+        </Container>
+      </Box>
     </Box>
   );
 }

@@ -7,37 +7,26 @@ import {
   Box, Typography, Paper, TextField, Button, List, 
   ListItem, ListItemText, Grid, Link as MuiLink, 
   Container, Avatar, Chip, Stack, IconButton, Tooltip, Divider, useTheme, alpha,
-  Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem, FormControl, InputLabel
+  Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem, FormControl, InputLabel,
+  ListItemSecondaryAction
 } from '@mui/material';
 import { toast } from 'react-hot-toast';
 
-import GroupsIcon from '@mui/icons-material/Groups';
-import BusinessIcon from '@mui/icons-material/Business';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
-import PersonIcon from '@mui/icons-material/Person';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
-import StarIcon from '@mui/icons-material/Star';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import DeleteIcon from '@mui/icons-material/Delete';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
+import BusinessOutlinedIcon from '@mui/icons-material/BusinessOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import VerifiedUserOutlinedIcon from '@mui/icons-material/VerifiedUserOutlined';
 
 const API_BASE_URL = 'http://localhost:8080'; 
 
 const getImageUrl = (path) => {
   if (!path) return undefined;
   if (path.startsWith('http') || path.startsWith('data:')) return path;
-  return `${API_BASE_URL}${path}`;
-};
-
-const scrollContainerStyles = {
-  maxHeight: '500px', 
-  overflowY: 'auto',  
-  pr: 1,              
-  '&::-webkit-scrollbar': { width: '6px' },
-  '&::-webkit-scrollbar-track': { background: '#f1f1f1', borderRadius: '10px' },
-  '&::-webkit-scrollbar-thumb': { background: '#c1c1c1', borderRadius: '10px' },
-  '&::-webkit-scrollbar-thumb:hover': { background: '#a8a8a8' },
+  return `${API_BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
 };
 
 export default function TeamProfile() {
@@ -46,10 +35,12 @@ export default function TeamProfile() {
   const theme = useTheme();
   const navigate = useNavigate();
   
+  const ACCENT_COLOR = theme.palette.primary.main;
+
   const [team, setTeam] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
-
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [freeUsers, setFreeUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -58,332 +49,267 @@ export default function TeamProfile() {
   const [potentialLeaders, setPotentialLeaders] = useState([]);
   const [newLeaderId, setNewLeaderId] = useState('');
 
-  useEffect(() => {
-    loadTeam();
-  }, [id]);
+  useEffect(() => { loadTeam(); }, [id]);
 
   const loadTeam = async () => {
     try {
       const { data } = await api.get(`/teams/${id}`);
       setTeam(data);
-      setFormData({ 
-        name: data.name, 
-        description: data.description,
-        avatar_url: data.avatar_url
-      });
-    } catch (e) {
-      toast.error('Команда не найдена');
-    }
+      setFormData({ name: data.name, description: data.description });
+    } catch (e) { toast.error('Команда не найдена'); }
   };
-
-  const handleDeleteTeam = async () => {
-      const confirmText = prompt(`Для удаления команды введите её название: "${team.name}"`);
-      if (confirmText !== team.name) return;
-      
-      try {
-          await api.delete(`/teams/${id}`);
-          toast.success("Команда удалена");
-          navigate(`/organizations/${team.organization_id}`);
-      } catch(e) { toast.error("Ошибка удаления"); }
+  
+  const handleSave = async () => {
+    try {
+      await api.put(`/teams/${id}`, { name: formData.name, description: formData.description });
+      toast.success('Обновлено');
+      setIsEditing(false);
+      loadTeam();
+    } catch (e) { toast.error('Доступ запрещен'); }
   };
 
   const handleOpenLeaderModal = async () => {
-      try {
-          const { data } = await api.get(`/potential-leaders?team_id=${id}`);
-          setPotentialLeaders(data);
-          setNewLeaderId(team.leader_id || '');
-          setIsLeaderModalOpen(true);
-      } catch(e) { toast.error("Ошибка загрузки списка"); }
+    try {
+        const { data } = await api.get(`/potential-leaders?team_id=${id}`);
+        setPotentialLeaders(data);
+        setNewLeaderId(team.leader_id || '');
+        setIsLeaderModalOpen(true);
+    } catch(e) { toast.error("Ошибка загрузки списка руководителей"); }
   };
 
   const handleSaveLeader = async () => {
-      try {
-          const payload = { leader_id: newLeaderId ? parseInt(newLeaderId) : null };
-          await api.put(`/teams/${id}/leader`, payload);
-          toast.success("Руководитель изменен");
-          setIsLeaderModalOpen(false);
-          loadTeam();
-      } catch(e) { toast.error("Ошибка обновления"); }
+    try {
+        const payload = { leader_id: newLeaderId ? parseInt(newLeaderId) : null };
+        await api.put(`/teams/${id}/leader`, payload);
+        toast.success("Руководитель изменен");
+        setIsLeaderModalOpen(false);
+        loadTeam();
+    } catch(e) { toast.error("Ошибка обновления руководителя"); }
   };
 
-  const handleSave = async () => {
+  const handleDeleteTeam = async () => {
+    const confirmText = prompt(`Для подтверждения удаления введите название команды: "${team.name}"`);
+    if (confirmText !== team.name) return;
     try {
-      await api.put(`/teams/${id}`, {
-        name: formData.name,
-        description: formData.description
-      });
-      toast.success('Команда обновлена');
-      setIsEditing(false);
-      loadTeam();
-    } catch (e) {
-      toast.error('Нет прав для редактирования');
-    }
+        await api.delete(`/teams/${id}`);
+        toast.success("Команда удалена");
+        navigate(`/organizations/${team.organization_id}`);
+    } catch(e) { toast.error("Ошибка при удалении команды"); }
   };
 
   const handleOpenAddModal = async () => {
-    if (!team.organization_id) return;
+    if (!team?.organization_id) return;
     try {
       const { data } = await api.get(`/organizations/${team.organization_id}/free-users`);
       setFreeUsers(data);
       setIsAddModalOpen(true);
-    } catch (e) {
-      toast.error('Не удалось загрузить список сотрудников');
-    }
+    } catch (e) { toast.error('Ошибка загрузки свободных сотрудников'); }
   };
 
   const handleAddMember = async () => {
-    if (!selectedUserId) return;
     try {
       await api.post(`/teams/${id}/members`, { user_id: selectedUserId });
       toast.success('Сотрудник добавлен');
       setIsAddModalOpen(false);
       setSelectedUserId('');
       loadTeam();
-    } catch (e) {
-      toast.error(e.response?.data?.error || 'Ошибка добавления');
-    }
+    } catch (e) { toast.error(e.response?.data?.error || 'Ошибка добавления'); }
   };
 
   const handleRemoveMember = async (memberId, memberName) => {
     if (!window.confirm(`Удалить ${memberName} из команды?`)) return;
     try {
       await api.delete(`/teams/${id}/members/${memberId}`);
-      toast.success('Сотрудник удален из команды');
+      toast.success('Удален из команды');
       loadTeam();
-    } catch (e) {
-      toast.error(e.response?.data?.error || 'Ошибка удаления');
-    }
+    } catch (e) { toast.error('Ошибка удаления'); }
   };
 
-  if (!team) return <Container sx={{py: 4, textAlign: 'center'}}><Typography>Загрузка...</Typography></Container>;
+  if (!team) return <Container sx={{py: 10, textAlign: 'center'}}><Typography color="text.secondary">Загрузка...</Typography></Container>;
 
   const isLeader = team.leader_id === user?.id;
   const isAdmin = user?.role >= 3;
   const canEdit = isLeader || isAdmin;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      
-      <Paper elevation={0} sx={{ p: 4, borderRadius: 4, mb: 4, border: '1px solid', borderColor: 'divider', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', background: 'linear-gradient(to right bottom, #ffffff, #f8f9fa)' }}>
+    <Container maxWidth="lg" sx={{ py: 2 }}>
+      <Paper elevation={0} sx={{ p: 4, borderRadius: '12px', mb: 4, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Grid container spacing={4} alignItems="center">
-          <Grid item xs={12} md="auto" display="flex" justifyContent="center">
-            <AvatarUpload currentAvatar={team.avatar_url} entityType="team" entityId={team.id} editable={canEdit} size={140} onUpload={(newUrl) => setTeam({ ...team, avatar_url: newUrl })} />
+          <Grid item size={{ xs: 12, md: 'auto' }} sx={{ display: 'flex', justifyContent: 'center' }}>
+            <AvatarUpload 
+              currentAvatar={team.avatar_url} 
+              entityType="team" 
+              entityId={team.id} 
+              editable={canEdit} 
+              size={140} 
+              onUpload={(url) => setTeam({ ...team, avatar_url: url })} 
+            />
           </Grid>
-          <Grid item xs={12} md>
+          <Grid item size={{ xs: 12, md: true }}>
              <Box display="flex" justifyContent="space-between" alignItems="flex-start">
               <Box width="100%">
                 {isEditing ? (
-                  <Stack spacing={2} mb={2}>
-                    <TextField fullWidth label="Название" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                    <TextField fullWidth multiline rows={3} label="Описание" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                  <Stack spacing={2} mb={2} sx={{ maxWidth: 500 }}>
+                    <TextField fullWidth size="small" label="Название" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <TextField fullWidth multiline rows={3} size="small" label="Описание" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                   </Stack>
                 ) : (
                   <>
-                    <Typography variant="h4" fontWeight="800" gutterBottom>{team.name}</Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
-                        {team.organization && <Chip icon={<BusinessIcon />} label={team.organization.name} component={Link} to={`/organizations/${team.organization_id}`} clickable color="primary" variant="outlined" />}
-                        <Box display="flex" alignItems="center" gap={1}>
-                        {team.leader ? (
+                    <Typography variant="h4" fontWeight="800" sx={{ mb: 2, letterSpacing: '-0.03em', color: 'text.primary' }}>{team.name}</Typography>
+                    <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
+                        {team.organization && (
                           <Chip 
-                            avatar={<Avatar src={getImageUrl(team.leader.avatar_url)} />} 
-                            label={`Лидер: ${team.leader.full_name}`} 
-                            component={Link} 
-                            to={`/users/${team.leader_id}`} 
-                            clickable 
-                            variant="outlined" 
-                            sx={{ borderColor: 'warning.main' }} 
+                            icon={<BusinessOutlinedIcon style={{ fontSize: 16 }} />} 
+                            label={team.organization.name} 
+                            component={Link} to={`/organizations/${team.organization_id}`} 
+                            clickable variant="outlined" 
+                            sx={{ borderRadius: '6px', fontWeight: 600, '&:hover': { borderColor: ACCENT_COLOR, color: ACCENT_COLOR } }} 
                           />
-                        ) : (
-                          <Chip label="Без лидера" variant="outlined" />
                         )}
-
-                        {isAdmin && (
-                          <Tooltip title="Сменить руководителя">
-                            <IconButton 
-                              size="small" 
-                              onClick={handleOpenLeaderModal} 
-                              sx={{ bgcolor: 'action.hover' }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                        
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Chip 
+                            avatar={<Avatar src={getImageUrl(team.leader?.avatar_url)} />} 
+                            label={team.leader ? `Лидер: ${team.leader.full_name}` : "Без лидера"} 
+                            component={team.leader ? Link : 'div'} 
+                            to={team.leader ? `/users/${team.leader_id}` : undefined}
+                            clickable={!!team.leader} variant="outlined" 
+                            sx={{ borderRadius: '6px', fontWeight: 600, bgcolor: alpha(ACCENT_COLOR, 0.05), borderColor: alpha(ACCENT_COLOR, 0.2) }} 
+                          />
+                          {isAdmin && (
+                            <Tooltip title="Сменить руководителя">
+                              <IconButton size="small" onClick={handleOpenLeaderModal} sx={{ border: '1px solid', borderColor: 'divider' }}>
+                                <EditOutlinedIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                     </Stack>
-                    <Typography variant="body1" color="text.secondary">{team.description}</Typography>
+                    <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>{team.description || "Описание отсутствует."}</Typography>
                   </>
                 )}
               </Box>
               {canEdit && (
                 <Box ml={2}>
-                    {!isEditing ? <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>Изменить</Button> : 
-                    <Stack direction="row" spacing={1}><IconButton onClick={() => setIsEditing(false)} color="error"><CancelIcon /></IconButton><IconButton onClick={handleSave} color="success"><SaveIcon /></IconButton></Stack>}
+                    {!isEditing ? (
+                      <Button variant="outlined" startIcon={<EditOutlinedIcon />} onClick={() => setIsEditing(true)} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: 'divider' }}>
+                        Изменить
+                      </Button>
+                    ) : (
+                      <Stack direction="row" spacing={1}>
+                        <IconButton onClick={() => setIsEditing(false)}><CloseOutlinedIcon /></IconButton>
+                        <IconButton onClick={handleSave} sx={{ color: ACCENT_COLOR }}><SaveOutlinedIcon /></IconButton>
+                      </Stack>
+                    )}
                 </Box>
               )}
             </Box>
           </Grid>
         </Grid>
       </Paper>
-
-      <Paper elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid', borderColor: 'divider', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-        
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Box display="flex" alignItems="center" gap={1}>
-                <GroupsIcon color="action" fontSize="large" />
-                <Typography variant="h5" fontWeight="bold">
-                    Участники команды ({team.members?.length || 0})
-                </Typography>
+      <Paper elevation={0} sx={{ p: 4, borderRadius: '12px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Box display="flex" alignItems="center" gap={1.5}>
+                <GroupsOutlinedIcon sx={{ color: ACCENT_COLOR, fontSize: 28 }} />
+                <Typography variant="h5" fontWeight="800">Участники <Box component="span" sx={{ color: 'text.disabled', ml: 1, fontWeight: 400 }}>{team.members?.length || 0}</Box></Typography>
             </Box>
-
             {canEdit && (
-                <Button 
-                    variant="contained" 
-                    startIcon={<PersonAddIcon />} 
-                    onClick={handleOpenAddModal}
-                    sx={{ borderRadius: 2 }}
-                >
+                <Button variant="contained" disableElevation startIcon={<PersonAddOutlinedIcon />} onClick={handleOpenAddModal} sx={{ borderRadius: '8px', bgcolor: ACCENT_COLOR, textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: ACCENT_COLOR } }}>
                     Добавить
                 </Button>
             )}
         </Box>
-        
-        <Divider sx={{ mb: 2 }} />
-
-        <Box sx={scrollContainerStyles}>
-            <List disablePadding>
-                {team.members && team.members.length > 0 ? (
-                    team.members.map(member => (
-                    <ListItem 
-                        key={member.id} 
-                        sx={{ 
-                            p: 2, mb: 1, borderRadius: 2, border: '1px solid transparent', transition: 'all 0.2s',
-                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04), borderColor: 'primary.light', boxShadow: 1 }
-                        }}
-                        secondaryAction={
-                            canEdit && member.id !== team.leader_id && (
-                                <Tooltip title="Удалить из команды">
-                                    <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveMember(member.id, member.full_name)}>
-                                        <DeleteIcon color="error" fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
-                            )
-                        }
-                    >
-                        <Box component={Link} to={`/users/${member.id}`} sx={{ display: 'flex', alignItems: 'center', width: '100%', textDecoration: 'none', color: 'inherit' }}>
-                            <Avatar src={getImageUrl(member.avatar_url)} sx={{ width: 50, height: 50, mr: 2, bgcolor: 'secondary.main' }}>{member.full_name[0]}</Avatar>
-                            <ListItemText 
-                                primary={
-                                    <Box display="flex" alignItems="center" gap={1}>
-                                        <Typography variant="subtitle1" fontWeight="600">{member.full_name}</Typography>
-                                        {member.id === team.leader_id && <Tooltip title="Руководитель"><StarIcon color="warning" fontSize="small" /></Tooltip>}
-                                    </Box>
-                                } 
-                                secondary={`${member.email} • ${member.id === team.leader_id ? "Руководитель" : "Сотрудник"}`} 
-                            />
-                        </Box>
-                    </ListItem>
-                    ))
-                ) : (
-                    <Box textAlign="center" py={5} bgcolor="#fafafa" borderRadius={2}>
-                        <GroupsIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-                        <Typography variant="body1" color="text.secondary">В этой команде пока никого нет.</Typography>
+        <Divider sx={{ mb: 1 }} />
+        <List disablePadding>
+            {team.members?.map(member => (
+                <ListItem 
+                    key={member.id} 
+                    sx={{ py: 2, px: 1, borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}
+                >
+                    <Box component={Link} to={`/users/${member.id}`} sx={{ display: 'flex', alignItems: 'center', width: '100%', textDecoration: 'none', color: 'inherit' }}>
+                        <Avatar src={getImageUrl(member.avatar_url)} sx={{ width: 44, height: 44, mr: 2.5, border: '1px solid', borderColor: 'divider' }}>{member.full_name[0]}</Avatar>
+                        <ListItemText 
+                            primary={<Box display="flex" alignItems="center" gap={1}><Typography variant="body1" fontWeight="600">{member.full_name}</Typography>{member.id === team.leader_id && <VerifiedUserOutlinedIcon sx={{ color: ACCENT_COLOR, fontSize: 16 }} />}</Box>}
+                            secondary={<Typography variant="caption" color="text.secondary">{member.email}</Typography>} 
+                        />
                     </Box>
-                )}
-            </List>
-        </Box>
+                    {canEdit && member.id !== team.leader_id && (
+                        <ListItemSecondaryAction>
+                            <IconButton edge="end" onClick={() => handleRemoveMember(member.id, member.full_name)}>
+                                <DeleteOutlineIcon sx={{ color: 'text.disabled', fontSize: 20, '&:hover': { color: '#f44336' } }} />
+                            </IconButton>
+                        </ListItemSecondaryAction>
+                    )}
+                </ListItem>
+            ))}
+        </List>
       </Paper>
-
-      <Dialog open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Добавить сотрудника</DialogTitle>
+      {isAdmin && !isEditing && (
+        <Box mt={6} pt={4} borderTop="1px solid" borderColor="divider">
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 700, letterSpacing: '0.1em' }}>УПРАВЛЕНИЕ КОМАНДОЙ</Typography>
+            <Box mt={2}>
+                <Button 
+                    variant="outlined" color="inherit" 
+                    sx={{ borderColor: 'divider', textTransform: 'none', borderRadius: '8px', color: 'text.secondary' }} 
+                    startIcon={<DeleteOutlineIcon />} 
+                    onClick={handleDeleteTeam}
+                >
+                    Удалить команду
+                </Button>
+            </Box>
+        </Box>
+      )}
+      <Dialog open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Добавить участника</DialogTitle>
         <DialogContent>
-            <Typography variant="body2" color="text.secondary" paragraph>
-                Выберите сотрудника из организации, который еще не состоит ни в одной команде.
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Выберите сотрудника, не состоящего в других командах.
             </Typography>
-            
             {freeUsers.length > 0 ? (
-                <FormControl fullWidth sx={{ mt: 1 }}>
-                    <InputLabel id="user-select-label">Сотрудник</InputLabel>
-                    <Select
-                        labelId="user-select-label"
-                        value={selectedUserId}
-                        label="Сотрудник"
-                        onChange={(e) => setSelectedUserId(e.target.value)}
-                    >
+                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                    <InputLabel>Сотрудник</InputLabel>
+                    <Select value={selectedUserId} label="Сотрудник" onChange={(e) => setSelectedUserId(e.target.value)}>
                         {freeUsers.map((u) => (
                             <MenuItem key={u.id} value={u.id}>
-                                <Box display="flex" alignItems="center" gap={2}>
-                                    <Avatar src={getImageUrl(u.avatar_url)} sx={{ width: 24, height: 24 }}>{u.full_name[0]}</Avatar>
-                                    {u.full_name} ({u.email})
+                                <Box display="flex" alignItems="center" gap={1.5}>
+                                    <Avatar src={getImageUrl(u.avatar_url)} sx={{ width: 24, height: 24, fontSize: 10 }}>{u.full_name[0]}</Avatar>
+                                    <Typography variant="body2">{u.full_name}</Typography>
                                 </Box>
                             </MenuItem>
                         ))}
                     </Select>
                 </FormControl>
-            ) : (
-                <Box textAlign="center" py={2}>
-                    <Typography color="error">Нет доступных сотрудников для добавления</Typography>
-                </Box>
-            )}
+            ) : <Typography variant="body2" color="text.disabled">Нет свободных сотрудников в организации</Typography>}
         </DialogContent>
-        <DialogActions>
-            <Button onClick={() => setIsAddModalOpen(false)}>Отмена</Button>
-            <Button onClick={handleAddMember} variant="contained" disabled={!selectedUserId}>Добавить</Button>
+        <DialogActions sx={{ p: 3 }}>
+            <Button onClick={() => setIsAddModalOpen(false)} sx={{ textTransform: 'none', color: 'text.secondary' }}>Отмена</Button>
+            <Button onClick={handleAddMember} variant="contained" disableElevation disabled={!selectedUserId} sx={{ bgcolor: ACCENT_COLOR, textTransform: 'none', borderRadius: '8px' }}>Добавить</Button>
         </DialogActions>
-        </Dialog>
-            {isAdmin && !isEditing && (
-              <Box mt={5} pt={3} borderTop="1px solid #eee">
-                  <Typography variant="overline" color="error" fontWeight="bold">Управление командой</Typography>
-                  <Box mt={1}>
-                      <Button 
-                          variant="outlined" 
-                          color="error" 
-                          startIcon={<DeleteForeverIcon />}
-                          onClick={handleDeleteTeam}
-                      >
-                          Удалить команду
-                      </Button>
-                  </Box>
-              </Box>
-          )}
+      </Dialog>
 
-          <Dialog open={isLeaderModalOpen} onClose={() => setIsLeaderModalOpen(false)}>
-              <DialogTitle>Управление руководителем</DialogTitle>
-              <DialogContent sx={{ minWidth: 300, pt: 2 }}>
-                  <Typography variant="body2" color="text.secondary" paragraph>
-                      Выберите нового руководителя из списка сотрудников организации.
-                  </Typography>
-                  <FormControl fullWidth>
-                      <InputLabel>Руководитель</InputLabel>
-                      <Select
-                          value={newLeaderId}
-                          label="Руководитель"
-                          onChange={(e) => setNewLeaderId(e.target.value)}
-                      >
-                          <MenuItem value="">
-                              <em>-- Снять руководителя --</em>
-                          </MenuItem>
-                              {potentialLeaders.map(u => (
-                                <MenuItem key={u.id} value={u.id}>
-                                  <Box display="flex" alignItems="center" gap={2}>
-                                    <Avatar 
-                                      src={getImageUrl(u.avatar_url)} 
-                                      sx={{ width: 24, height: 24, bgcolor: 'secondary.main' }}
-                                    >
-                                      {u.full_name[0]}
-                                    </Avatar>
-                                    <Typography variant="body2">{u.full_name}</Typography>
-                                  </Box>
-                                </MenuItem>
-                              ))}
-                      </Select>
-                  </FormControl>
-              </DialogContent>
-              <DialogActions>
-                  <Button onClick={() => setIsLeaderModalOpen(false)}>Отмена</Button>
-                  <Button onClick={handleSaveLeader} variant="contained">Сохранить</Button>
-              </DialogActions>
-          </Dialog>
+      <Dialog open={isLeaderModalOpen} onClose={() => setIsLeaderModalOpen(false)} PaperProps={{ sx: { borderRadius: '12px' } }}>
+          <DialogTitle sx={{ fontWeight: 800 }}>Назначить руководителя</DialogTitle>
+          <DialogContent sx={{ minWidth: 320, pt: 1 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                  <InputLabel>Новый лидер</InputLabel>
+                  <Select value={newLeaderId} label="Новый лидер" onChange={(e) => setNewLeaderId(e.target.value)}>
+                      <MenuItem value=""><Typography variant="body2" color="text.secondary">-- Без руководителя --</Typography></MenuItem>
+                      {potentialLeaders.map(u => (
+                        <MenuItem key={u.id} value={u.id}>
+                          <Box display="flex" alignItems="center" gap={1.5}>
+                            <Avatar src={getImageUrl(u.avatar_url)} sx={{ width: 24, height: 24, fontSize: 10 }}>{u.full_name[0]}</Avatar>
+                            <Typography variant="body2">{u.full_name}</Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                  </Select>
+              </FormControl>
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+              <Button onClick={() => setIsLeaderModalOpen(false)} sx={{ textTransform: 'none', color: 'text.secondary' }}>Отмена</Button>
+              <Button onClick={handleSaveLeader} variant="contained" disableElevation sx={{ bgcolor: ACCENT_COLOR, textTransform: 'none', borderRadius: '8px' }}>Сохранить</Button>
+          </DialogActions>
+      </Dialog>
+      
     </Container>
   );
 }

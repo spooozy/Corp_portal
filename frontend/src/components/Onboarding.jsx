@@ -77,7 +77,7 @@ export default function Onboarding() {
             borderRadius: 4,
             border: '1px solid',
             borderColor: 'white',
-            background: 'rgba(255, 255, 255, 0.95)',
+            bgcolor: 'background.paper', 
             backdropFilter: 'blur(10px)'
           }}
         >

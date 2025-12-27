@@ -737,7 +737,7 @@ func UpdateTeamLeader(c *gin.Context) {
 				if err := tx.Model(&models.Team{}).
 					Where("leader_id = ? AND id != ?", oldLeader.ID, team.ID).
 					Count(&otherTeamsCount).Error; err == nil && otherTeamsCount == 0 {
-					if err := tx.Model(&oldLeader).Update("role", models.RoleUser).Error; err != nil {
+					if err := tx.Model(&oldLeader).Update("role", models.RoleEmployee).Error; err != nil {
 						tx.Rollback()
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to demote old leader"})
 						return
